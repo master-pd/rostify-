@@ -4,6 +4,7 @@ Festival Mode for Roastify Bot
 Special themes and features for festivals
 """
 
+import os
 import json
 import random
 import logging
