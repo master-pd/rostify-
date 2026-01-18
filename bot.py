@@ -382,7 +382,33 @@ Made with ❤️ for fun roasting!
                 await self.custom_unlocks.notify_unlocks(user.id, new_unlocks, context)
             
         except Exception as e:
-            logger.error(f"Error handling message: {e}")
+                        logger.error(f"Error handling message: {e}")
+            
+            # DEBUG CODE - ADD THESE LINES
+            import traceback
+            traceback_str = traceback.format_exc()
+            logger.error(f"Full traceback:\n{traceback_str}")
+            
+            # Check ADMIN_IDS specifically
+            try:
+                if 'ADMIN_IDS' in locals():
+                    admin_ids = locals()['ADMIN_IDS']
+                elif 'ADMIN_IDS' in globals():
+                    admin_ids = globals()['ADMIN_IDS']
+                else:
+                    from config import ADMIN_IDS as admin_ids
+                
+                logger.error(f"DEBUG - ADMIN_IDS type: {type(admin_ids)}, value: {admin_ids}")
+                
+                # Try to iterate
+                try:
+                    for aid in admin_ids:
+                        logger.error(f"DEBUG - Can iterate, admin_id: {aid}")
+                except Exception as iter_err:
+                    logger.error(f"DEBUG - Cannot iterate: {iter_err}")
+                    
+            except Exception as debug_err:
+                logger.error(f"DEBUG - Error checking ADMIN_IDS: {debug_err}")
             if update.message:
                 await update.message.reply_text(
                     "⚠️ কিছু একটা সমস্যা হয়েছে! আবার চেষ্টা করো 😅",
