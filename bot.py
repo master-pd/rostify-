@@ -290,6 +290,7 @@ Made with ❤️ for fun roasting!
             )
             
         except Exception as e:
+            traceback.print_exc()
             logger.error(f"Error in mood command: {e}")
             await update.message.reply_text(
                 "মুড অ্যানালাইসিস করতে সমস্যা হয়েছে! 😢",
