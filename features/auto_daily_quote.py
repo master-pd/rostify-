@@ -6,6 +6,7 @@ Posts daily roast quotes automatically
 
 import random
 import logging
+from PIL import Image, ImageFont, ImageDraw
 from typing import Dict, List, Any, Optional
 from datetime import datetime, time
 from telegram import Update
