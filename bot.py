@@ -7,6 +7,8 @@ Advanced professional bot with ALL features
 import os
 import sys
 import logging
+import json
+import traceback
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 import asyncio
@@ -290,7 +292,6 @@ Made with ❤️ for fun roasting!
             )
             
         except Exception as e:
-            traceback.print_exc()
             logger.error(f"Error in mood command: {e}")
             await update.message.reply_text(
                 "মুড অ্যানালাইসিস করতে সমস্যা হয়েছে! 😢",
@@ -382,33 +383,18 @@ Made with ❤️ for fun roasting!
                 await self.custom_unlocks.notify_unlocks(user.id, new_unlocks, context)
             
         except Exception as e:
-                        logger.error(f"Error handling message: {e}")
-            
-            # DEBUG CODE - ADD THESE LINES
-            import traceback
+            logger.error(f"Error handling message: {e}")
             traceback_str = traceback.format_exc()
             logger.error(f"Full traceback:\n{traceback_str}")
             
             # Check ADMIN_IDS specifically
             try:
-                if 'ADMIN_IDS' in locals():
-                    admin_ids = locals()['ADMIN_IDS']
-                elif 'ADMIN_IDS' in globals():
-                    admin_ids = globals()['ADMIN_IDS']
-                else:
-                    from config import ADMIN_IDS as admin_ids
-                
-                logger.error(f"DEBUG - ADMIN_IDS type: {type(admin_ids)}, value: {admin_ids}")
-                
-                # Try to iterate
-                try:
-                    for aid in admin_ids:
-                        logger.error(f"DEBUG - Can iterate, admin_id: {aid}")
-                except Exception as iter_err:
-                    logger.error(f"DEBUG - Cannot iterate: {iter_err}")
-                    
+                from config import OWNER_ADMIN_PROTECTION
+                admin_ids = OWNER_ADMIN_PROTECTION.get("admin_user_ids", [])
+                logger.error(f"DEBUG - ADMIN_IDS: {admin_ids}")
             except Exception as debug_err:
                 logger.error(f"DEBUG - Error checking ADMIN_IDS: {debug_err}")
+            
             if update.message:
                 await update.message.reply_text(
                     "⚠️ কিছু একটা সমস্যা হয়েছে! আবার চেষ্টা করো 😅",
@@ -537,6 +523,9 @@ Made with ❤️ for fun roasting!
             
         except Exception as e:
             logger.error(f"Error generating roast response: {e}")
+            traceback_str = traceback.format_exc()
+            logger.error(f"Traceback: {traceback_str}")
+            
             if update.message:
                 await update.message.reply_text(
                     "⚠️ ছবি জেনারেট করতে সমস্যা হচ্ছে! টেক্সট হিসেবে দিলাম: \n\n" +
@@ -578,6 +567,8 @@ Made with ❤️ for fun roasting!
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """Handle errors"""
         logger.error(f"Exception while handling update: {context.error}")
+        traceback_str = traceback.format_exc()
+        logger.error(f"Full traceback:\n{traceback_str}")
         
         # Try to notify user about error
         try:
@@ -705,6 +696,7 @@ Made with ❤️ for fun roasting!
         """Post daily leaderboard to all groups"""
         # This would require storing group IDs
         # For now, it's a placeholder
+        # Implement if you have group tracking system
         pass
     
     async def _record_daily_stats(self):
@@ -818,6 +810,8 @@ Memory: {psutil.virtual_memory().total // (1024**3)} GB
             logger.info("Bot stopped by user")
         except Exception as e:
             logger.error(f"Fatal error running bot: {e}")
+            traceback_str = traceback.format_exc()
+            logger.error(f"Traceback:\n{traceback_str}")
             raise
         finally:
             # Ensure cleanup on exit
@@ -876,7 +870,6 @@ def create_default_assets():
     # Create templates configuration
     templates_file = "assets/templates/templates.json"
     if not os.path.exists(templates_file):
-        import json
         default_templates = {
             "cartoon_roast": [
                 {"name": "cartoon_1", "style": "funny", "elements": ["bubble", "cartoon_bg"]},
