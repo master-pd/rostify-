@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  roastify-bot:
+    build: .
+    container_name: roastify-bot
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+      - ./assets:/app/assets
+      - ./logs:/app/logs
+      - ./backups:/app/backups
+    environment:
+      - TZ=Asia/Dhaka
+      - BOT_TOKEN=${BOT_TOKEN:-YOUR_BOT_TOKEN_HERE}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
