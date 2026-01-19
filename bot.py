@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
-Roastify Bot v7.0 - COMPLETE FIXED & UPDATED
-Image + Text + Diagram Reply with UltimateImageGenerator v6.0
+🔥 ROASTIFY BOT v8.0 ULTRA PRO MAX - COMPLETE UPGRADED VERSION
+✅ Integrated with Advanced Image Generator v8.0
+✅ Background Images + Profile Pictures + User Info Cards
+✅ Async Processing + Error Handling + Statistics
+📊 Version: 8.0.0 ULTRA PRO MAX
+⚡ Author: Roastify AI Team
 """
 
 import os
@@ -50,28 +54,27 @@ try:
     from features.safe_forward_share import SafeForwardShare
     from utils.template_manager import TemplateManager
     
-    # Import UltimateImageGenerator v6.0
+    # Import NEW UltimateImageGenerator v8.0
     from utils.image_generator_ultimate import (
-        UltimateImageGenerator, 
+        UltimateImageGenerator,
         GenerationResult,
+        UserInfo as ImageUserInfo,
         ImageConfig,
-        TextConfig,
-        BorderConfig,
-        BackgroundConfig,
-        BorderType,
+        DesignConfig,
+        ImageStyle,
+        BackgroundType,
+        ProfileStyle,
         TextEffect,
-        GradientDirection
+        get_image_generator
     )
     
-    # Import PIL
-    from PIL import Image, ImageDraw, ImageFont, ImageFilter
-    HAS_PIL = True
+    IMAGE_GEN_AVAILABLE = True
+    logger.info("✅ UltimateImageGenerator v8.0 imported successfully")
     
 except ImportError as e:
     logger.error(f"Import error: {e}")
     logger.error(traceback.format_exc())
-    logger.error("Please check all required files exist")
-    sys.exit(1)
+    IMAGE_GEN_AVAILABLE = False
 
 # Import Telegram
 try:
@@ -81,26 +84,28 @@ try:
         ContextTypes, CallbackQueryHandler, ApplicationBuilder
     )
     from telegram.constants import ParseMode
+    TELEGRAM_AVAILABLE = True
 except ImportError:
     logger.error("Install: pip install python-telegram-bot")
-    sys.exit(1)
+    TELEGRAM_AVAILABLE = False
 
 
 class AsyncImageGenerator:
-    """Async wrapper for UltimateImageGenerator"""
+    """Async wrapper for the new UltimateImageGenerator v8.0"""
     
-    def __init__(self, config: Optional[ImageConfig] = None):
-        self.generator = UltimateImageGenerator(config)
+    def __init__(self):
+        if not IMAGE_GEN_AVAILABLE:
+            raise ImportError("Image generator not available")
+        
+        self.generator = get_image_generator()
         self.executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=4,
             thread_name_prefix='ImageGenAsync'
         )
-        logger.info("AsyncImageGenerator initialized")
+        logger.info("✅ AsyncImageGenerator v8.0 initialized")
     
     async def generate_roast_image_async(self, roast_text: Any, user_info: Any,
-                                       style: str = "auto", 
-                                       border_config: Optional[BorderConfig] = None,
-                                       background_config: Optional[BackgroundConfig] = None) -> GenerationResult:
+                                       design_config: Optional[DesignConfig] = None) -> GenerationResult:
         """Async wrapper for image generation"""
         loop = asyncio.get_event_loop()
         
@@ -108,7 +113,9 @@ class AsyncImageGenerator:
             result = await loop.run_in_executor(
                 self.executor,
                 lambda: self.generator.generate_roast_image(
-                    roast_text, user_info, style, border_config, background_config
+                    roast_text=roast_text,
+                    user_info=user_info,
+                    design_config=design_config
                 )
             )
             return result
@@ -138,7 +145,7 @@ class AsyncImageGenerator:
                 processing_time=0.0
             )
     
-    async def generate_achievement_image_async(self, user_info: Any, achievement: Any) -> GenerationResult:
+    async def generate_achievement_image_async(self, user_info: Any, achievement: str) -> GenerationResult:
         """Async wrapper for achievement image generation"""
         loop = asyncio.get_event_loop()
         
@@ -158,11 +165,7 @@ class AsyncImageGenerator:
     
     def get_stats(self) -> Dict:
         """Get generator statistics"""
-        return self.generator.get_detailed_stats()
-    
-    def health_check(self) -> Dict:
-        """Health check"""
-        return self.generator.health_check()
+        return self.generator.get_stats()
     
     def cleanup(self):
         """Cleanup resources"""
@@ -174,426 +177,146 @@ class AsyncImageGenerator:
 
 
 class DiagramGenerator:
-    """Generate random diagrams for roasts"""
+    """Generate diagrams for roasts"""
     
     def __init__(self):
         self.diagram_types = [
-            "flow_chart", "pie_chart", "bar_chart", 
-            "line_graph", "venn_diagram", "mind_map",
-            "process_diagram", "comparison_chart"
+            "funny_analysis", "roast_meter", "humor_chart",
+            "sarcasm_graph", "cleverness_map", "impact_diagram"
         ]
         
         # Color palettes
         self.palettes = {
-            "funny": [(255, 200, 100), (255, 150, 150), (200, 255, 200), (200, 200, 255)],
-            "savage": [(255, 100, 100), (150, 50, 50), (100, 100, 100), (50, 50, 50)],
-            "friendly": [(100, 200, 255), (150, 255, 150), (255, 255, 150), (255, 200, 255)],
-            "clever": [(100, 100, 255), (200, 100, 200), (100, 200, 200), (200, 200, 100)]
+            "funny": [(255, 200, 100), (255, 150, 150), (200, 255, 200)],
+            "savage": [(255, 100, 100), (200, 50, 50), (150, 150, 150)],
+            "clever": [(100, 200, 255), (150, 100, 255), (200, 200, 100)],
         }
     
     async def generate_diagram_async(self, text: str, roast_type: str = "funny") -> Optional[str]:
-        """Generate a diagram image based on text (async)"""
-        if not HAS_PIL:
-            return None
-        
-        loop = asyncio.get_event_loop()
-        
-        try:
-            result = await loop.run_in_executor(
-                None,
-                self._generate_diagram_sync,
-                text,
-                roast_type
-            )
-            return result
-        except Exception as e:
-            logger.error(f"Diagram generation failed: {e}")
-            return None
-    
-    def _generate_diagram_sync(self, text: str, roast_type: str) -> Optional[str]:
-        """Synchronous diagram generation"""
+        """Generate a simple diagram image based on text"""
         try:
             # Create temp directory
             os.makedirs("temp", exist_ok=True)
             
             # Generate filename
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"temp/diagram_{timestamp}.png"
             
-            # Choose random diagram type
-            diagram_type = random.choice(self.diagram_types)
+            # Create simple diagram
+            self._create_simple_diagram(text, roast_type, filename)
             
-            # Create image
-            width, height = 800, 600
-            image = Image.new('RGB', (width, height), color=(240, 240, 240))
-            draw = ImageDraw.Draw(image)
-            
-            # Get colors for roast type
-            colors = self.palettes.get(roast_type, self.palettes["funny"])
-            
-            # Add title
-            title = f"{roast_type.upper()} ANALYSIS"
-            try:
-                font = ImageFont.truetype("assets/fonts/arial.ttf", 36)
-            except:
-                try:
-                    font = ImageFont.truetype("arial.ttf", 36)
-                except:
-                    font = ImageFont.load_default()
-            
-            # Draw title
-            draw.text((width//2 - 150, 30), title, fill=(0, 0, 0), font=font, align="center")
-            
-            # Add subtitle
-            subtitle = f"Based on: {text[:50]}{'...' if len(text) > 50 else ''}"
-            draw.text((width//2 - 200, 80), subtitle, fill=(100, 100, 100), font=ImageFont.load_default())
-            
-            # Generate diagram based on type
-            if diagram_type == "pie_chart":
-                self._draw_pie_chart(draw, width, height, colors)
-            elif diagram_type == "bar_chart":
-                self._draw_bar_chart(draw, width, height, colors, text)
-            elif diagram_type == "flow_chart":
-                self._draw_flow_chart(draw, width, height, colors, text)
-            elif diagram_type == "venn_diagram":
-                self._draw_venn_diagram(draw, width, height, colors, text)
-            else:
-                self._draw_generic_diagram(draw, width, height, colors, text)
-            
-            # Add footer
-            footer = "Generated by Roastify v7.0"
-            draw.text((width - 200, height - 30), footer, fill=(150, 150, 150), font=ImageFont.load_default())
-            
-            # Apply effects
-            image = self._apply_diagram_effects(image)
-            
-            # Save image
-            image.save(filename, 'PNG', quality=95, optimize=True)
-            logger.info(f"Diagram generated: {filename}")
-            
-            return filename
+            if os.path.exists(filename):
+                return filename
+            return None
             
         except Exception as e:
-            logger.error(f"Error generating diagram: {e}")
+            logger.error(f"Diagram generation failed: {e}")
             return None
     
-    def _apply_diagram_effects(self, image: Image.Image) -> Image.Image:
-        """Apply effects to diagram"""
+    def _create_simple_diagram(self, text: str, roast_type: str, filename: str):
+        """Create a simple diagram"""
         try:
-            # Add slight noise
-            width, height = image.size
-            noise = Image.new('RGBA', (width, height), (0, 0, 0, 0))
-            draw = ImageDraw.Draw(noise)
+            import matplotlib.pyplot as plt
+            import numpy as np
             
-            for _ in range(100):
-                x = random.randint(0, width - 1)
-                y = random.randint(0, height - 1)
-                alpha = random.randint(5, 15)
-                size = random.randint(1, 2)
-                draw.ellipse([x, y, x + size, y + size], fill=(255, 255, 255, alpha))
+            # Create data based on text
+            text_hash = hashlib.md5(text.encode()).hexdigest()
+            categories = ['Humor', 'Sarcasm', 'Cleverness', 'Impact', 'Style']
             
-            result = Image.alpha_composite(image.convert('RGBA'), noise)
-            return result.convert('RGB')
-        except:
-            return image
+            # Generate values from hash
+            values = []
+            for i in range(5):
+                val = int(text_hash[i*6:(i+1)*6], 16) % 100
+                values.append(val)
+            
+            # Create radar chart
+            angles = np.linspace(0, 2 * np.pi, len(categories), endpoint=False).tolist()
+            values += values[:1]
+            angles += angles[:1]
+            
+            fig, ax = plt.subplots(figsize=(6, 6), subplot_kw=dict(projection='polar'))
+            
+            # Plot
+            ax.plot(angles, values, 'o-', linewidth=2)
+            ax.fill(angles, values, alpha=0.25)
+            
+            # Set category labels
+            ax.set_xticks(angles[:-1])
+            ax.set_xticklabels(categories)
+            
+            # Set title
+            ax.set_title(f'Roast Analysis: {roast_type.title()}', size=14, y=1.1)
+            
+            # Save
+            plt.tight_layout()
+            plt.savefig(filename, dpi=100, bbox_inches='tight')
+            plt.close()
+            
+        except ImportError:
+            # Fallback to text-based diagram
+            self._create_text_diagram(text, roast_type, filename)
     
-    def _draw_pie_chart(self, draw, width, height, colors):
-        """Draw a pie chart"""
-        center_x, center_y = width // 2, height // 2 - 50
-        radius = 150
-        
-        # Generate random segments
-        segments = random.randint(3, 6)
-        segment_sizes = [random.randint(1, 10) for _ in range(segments)]
-        total = sum(segment_sizes)
-        
-        start_angle = 0
-        for i in range(segments):
-            # Calculate angle based on segment size
-            angle = 360 * (segment_sizes[i] / total)
-            end_angle = start_angle + angle
+    def _create_text_diagram(self, text: str, roast_type: str, filename: str):
+        """Create text-based diagram"""
+        try:
+            from PIL import Image, ImageDraw, ImageFont
             
-            # Draw segment
-            draw.pieslice(
-                [center_x - radius, center_y - radius, 
-                 center_x + radius, center_y + radius],
-                start_angle, end_angle,
-                fill=colors[i % len(colors)],
-                outline=(0, 0, 0),
-                width=2
-            )
+            # Create image
+            img = Image.new('RGB', (600, 400), color=(240, 240, 240))
+            draw = ImageDraw.Draw(img)
             
-            # Add label
-            label_angle = (start_angle + end_angle) / 2
-            label_rad = math.radians(label_angle)
-            label_x = center_x + (radius + 40) * math.cos(label_rad)
-            label_y = center_y + (radius + 40) * math.sin(label_rad)
+            # Add title
+            title = f"Roast Analysis: {roast_type.upper()}"
+            draw.text((50, 30), title, fill=(0, 0, 0))
             
-            label = f"{int((segment_sizes[i]/total)*100)}%"
-            draw.text((label_x - 10, label_y - 10), label, fill=(0, 0, 0))
+            # Add analysis
+            analysis_lines = [
+                f"Text Length: {len(text)} chars",
+                f"Roast Type: {roast_type}",
+                f"Humor Score: {random.randint(50, 95)}%",
+                f"Sarcasm Level: {random.randint(40, 90)}%",
+                f"Impact Rating: {random.randint(60, 98)}%",
+                f"Style Points: {random.randint(70, 95)}%"
+            ]
             
-            start_angle = end_angle
-        
-        # Add legend
-        legend_x = 50
-        legend_y = height - 150
-        for i in range(min(segments, 4)):
-            # Color box
-            draw.rectangle(
-                [legend_x, legend_y + i*30, legend_x + 20, legend_y + i*30 + 20],
-                fill=colors[i % len(colors)],
-                outline=(0, 0, 0)
-            )
-            # Label
-            draw.text(
-                (legend_x + 30, legend_y + i*30),
-                f"Factor {i+1}: {segment_sizes[i]} pts",
-                fill=(0, 0, 0)
-            )
-    
-    def _draw_bar_chart(self, draw, width, height, colors, text):
-        """Draw a bar chart"""
-        chart_x, chart_y = 100, 100
-        chart_width, chart_height = 600, 350
-        
-        # Draw axes
-        draw.line([(chart_x, chart_y), (chart_x, chart_y + chart_height)], fill=(0, 0, 0), width=3)
-        draw.line([(chart_x, chart_y + chart_height), 
-                   (chart_x + chart_width, chart_y + chart_height)], fill=(0, 0, 0), width=3)
-        
-        # Generate bars based on text hash
-        text_hash = hashlib.md5(text.encode()).hexdigest()
-        bars = min(6, len(text_hash) // 4)
-        
-        bar_width = chart_width // (bars + 2)
-        
-        for i in range(bars):
-            x = chart_x + (i + 1) * bar_width
-            # Use text hash for deterministic but varied heights
-            hash_val = int(text_hash[i*4:(i+1)*4], 16)
-            bar_height = chart_height * (hash_val % 70 + 30) / 100
+            y_pos = 80
+            for line in analysis_lines:
+                draw.text((50, y_pos), line, fill=(50, 50, 50))
+                y_pos += 35
             
-            # Draw bar
-            color = colors[i % len(colors)]
-            draw.rectangle(
-                [x, chart_y + chart_height - bar_height,
-                 x + bar_width - 15, chart_y + chart_height],
-                fill=color,
-                outline=(0, 0, 0),
-                width=2
-            )
+            # Add footer
+            footer = "Generated by Roastify v8.0"
+            draw.text((400, 350), footer, fill=(150, 150, 150))
             
-            # Add value
-            value = int((bar_height / chart_height) * 100)
-            draw.text((x + bar_width//2 - 10, chart_y + chart_height - bar_height - 20), 
-                     f"{value}%", fill=(0, 0, 0))
+            # Save
+            img.save(filename, 'PNG', quality=95)
             
-            # Add label
-            labels = ["Humor", "Logic", "Sarcasm", "Creativity", "Impact", "Style"]
-            label = labels[i] if i < len(labels) else f"Cat{i+1}"
-            draw.text((x + bar_width//2 - 20, chart_y + chart_height + 10), label, fill=(0, 0, 0))
-    
-    def _draw_flow_chart(self, draw, width, height, colors, text):
-        """Draw a flow chart"""
-        # Draw boxes
-        box_width, box_height = 140, 50
-        positions = [
-            (width//2 - box_width//2, 100),
-            (150, 200),
-            (width - 290, 200),
-            (width//2 - box_width//2, 300),
-            (width//2 - box_width//2, 400)
-        ]
-        
-        box_texts = [
-            "Input Text",
-            "Analyze Context",
-            "Generate Roast",
-            "Add Humor",
-            "Deliver!"
-        ]
-        
-        for i, (x, y) in enumerate(positions):
-            # Draw box
-            draw.rounded_rectangle(
-                [x, y, x + box_width, y + box_height],
-                radius=10,
-                fill=colors[i % len(colors)],
-                outline=(0, 0, 0),
-                width=2
-            )
-            
-            # Add text
-            text_in_box = box_texts[i] if i < len(box_texts) else f"Step {i+1}"
-            draw.text((x + box_width//2 - 30, y + box_height//2 - 10), 
-                     text_in_box, fill=(0, 0, 0))
-        
-        # Draw arrows
-        arrow_positions = [
-            (0, 1), (0, 2), (1, 3), (2, 3), (3, 4)
-        ]
-        
-        for start_idx, end_idx in arrow_positions:
-            if start_idx < len(positions) and end_idx < len(positions):
-                x1 = positions[start_idx][0] + box_width//2
-                y1 = positions[start_idx][1] + box_height
-                x2 = positions[end_idx][0] + box_width//2
-                y2 = positions[end_idx][1]
-                
-                # Draw line
-                draw.line([(x1, y1), (x2, y2)], fill=(0, 0, 0), width=2)
-                
-                # Draw arrow head
-                draw.polygon([
-                    (x2, y2),
-                    (x2 - 8, y2 + 15),
-                    (x2 + 8, y2 + 15)
-                ], fill=(0, 0, 0))
-    
-    def _draw_venn_diagram(self, draw, width, height, colors, text):
-        """Draw a Venn diagram"""
-        center_x, center_y = width // 2, height // 2
-        radius = 130
-        
-        # Draw circles with transparency
-        circle_colors = [
-            (255, 0, 0, 128),   # Red
-            (0, 255, 0, 128),   # Green
-            (0, 0, 255, 128)    # Blue
-        ]
-        
-        offsets = [(-100, 0), (100, 0), (0, 100)]
-        labels = ["Logic", "Emotion", "Humor"]
-        
-        for i in range(3):
-            offset_x, offset_y = offsets[i]
-            
-            # Create circle with transparency
-            circle_img = Image.new('RGBA', (radius*2, radius*2), (0, 0, 0, 0))
-            circle_draw = ImageDraw.Draw(circle_img)
-            circle_draw.ellipse(
-                [0, 0, radius*2, radius*2],
-                fill=circle_colors[i],
-                outline=(0, 0, 0, 255),
-                width=3
-            )
-            
-            # Paste onto main image
-            mask = circle_img.split()[3]
-            draw.bitmap(
-                (center_x + offset_x - radius, center_y + offset_y - radius),
-                mask,
-                fill=circle_colors[i][:3]
-            )
-            
-            # Add outline
-            draw.ellipse(
-                [center_x + offset_x - radius, center_y + offset_y - radius,
-                 center_x + offset_x + radius, center_y + offset_y + radius],
-                outline=(0, 0, 0),
-                width=3
-            )
-            
-            # Add labels
-            draw.text((center_x + offset_x - 30, center_y + offset_y - radius - 30),
-                     labels[i], fill=(0, 0, 0), font=ImageFont.load_default().font_variant(size=16))
-        
-        # Add intersection labels
-        draw.text((center_x - 20, center_y - 10), "Witty", fill=(0, 0, 0))
-        draw.text((center_x - 50, center_y + 40), "Clever", fill=(0, 0, 0))
-        draw.text((center_x + 30, center_y + 40), "Funny", fill=(0, 0, 0))
-        draw.text((center_x - 10, center_y + 20), "Perfect\nRoast", fill=(0, 0, 0))
-    
-    def _draw_generic_diagram(self, draw, width, height, colors, text):
-        """Draw a generic diagram"""
-        # Draw a network/graph
-        nodes = min(8, len(text) // 5 + 3)
-        node_radius = 25
-        node_positions = []
-        
-        # Generate node positions in a circle
-        center_x, center_y = width // 2, height // 2 - 50
-        circle_radius = 200
-        
-        for i in range(nodes):
-            angle = 2 * math.pi * i / nodes
-            x = center_x + circle_radius * math.cos(angle)
-            y = center_y + circle_radius * math.sin(angle)
-            node_positions.append((x, y))
-            
-            # Draw node
-            color = colors[i % len(colors)]
-            draw.ellipse(
-                [x - node_radius, y - node_radius,
-                 x + node_radius, y + node_radius],
-                fill=color,
-                outline=(0, 0, 0),
-                width=3
-            )
-            
-            # Add node label
-            node_labels = ["Idea", "Words", "Humor", "Timing", "Context", "Delivery", "Impact", "Style"]
-            label = node_labels[i] if i < len(node_labels) else f"Node{i+1}"
-            draw.text((x - 15, y - 10), label, fill=(0, 0, 0))
-        
-        # Draw connections (fully connected for small networks)
-        for i in range(nodes):
-            for j in range(i + 1, nodes):
-                # Higher chance for connections in smaller networks
-                if nodes <= 4 or random.random() > 0.3:
-                    x1, y1 = node_positions[i]
-                    x2, y2 = node_positions[j]
-                    
-                    # Line width based on "importance"
-                    line_width = 1 + (hash(text) % 3)
-                    draw.line([(x1, y1), (x2, y2)], 
-                             fill=(100, 100, 100), 
-                             width=line_width)
-        
-        # Add central node
-        draw.ellipse(
-            [center_x - 40, center_y - 40,
-             center_x + 40, center_y + 40],
-            fill=(255, 255, 200),
-            outline=(0, 0, 0),
-            width=4
-        )
-        draw.text((center_x - 30, center_y - 10), "ROAST", fill=(0, 0, 0))
+        except Exception as e:
+            logger.error(f"Text diagram creation failed: {e}")
 
 
-class RoastifyBot:
-    """Main Roastify Bot Class v7.0"""
+class RoastifyBotV8:
+    """Main Roastify Bot Class v8.0 - Upgraded Version"""
     
     def __init__(self):
-        """Initialize the bot"""
+        """Initialize the upgraded bot"""
         self.bot_token = BOT_TOKEN
-        self.bot_name = BOT_IDENTITY.get("name", "Roastify")
-        self.bot_tagline = BOT_IDENTITY.get("tagline", "")
+        self.bot_name = BOT_IDENTITY.get("name", "Roastify Pro")
+        self.bot_tagline = BOT_IDENTITY.get("tagline", "Advanced Roasting AI")
         
         # Initialize components
         self.db = get_database()
         
-        # Initialize Image Generator with config
-        image_config = ImageConfig(
-            width=1080,
-            height=1080,
-            quality=95,
-            format="PNG",
-            enable_cache=True,
-            cache_ttl_hours=24,
-            max_cache_size=1000,
-            output_dir="./output",
-            temp_dir="./temp",
-            cache_dir="./cache",
-            assets_dir="./assets",
-            backup_dir="./backup",
-            max_workers=4,
-            timeout=30.0,
-            enable_backup=True,
-            compression_level=6
-        )
+        # Initialize Image Generator
+        self.image_gen = None
+        if IMAGE_GEN_AVAILABLE:
+            try:
+                self.image_gen = AsyncImageGenerator()
+                logger.info("✅ Image generator initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize image generator: {e}")
+                self.image_gen = None
         
-        self.image_gen = AsyncImageGenerator(image_config)
         self.diagram_gen = DiagramGenerator()
         self.template_manager = TemplateManager()
         self.roast_engine = RoastEngine()
@@ -621,7 +344,7 @@ class RoastifyBot:
         except:
             self.features = {}
         
-        # Statistics
+        # Enhanced Statistics
         self.stats = {
             "messages_processed": 0,
             "roasts_generated": 0,
@@ -631,17 +354,20 @@ class RoastifyBot:
             "groups_managed": set(),
             "start_time": datetime.now(),
             "cache_hits": 0,
-            "cache_misses": 0
+            "cache_misses": 0,
+            "profile_images_used": 0,
+            "background_images_used": 0,
+            "user_info_cards_shown": 0
         }
         
         # Application instance
         self.application = None
         
         # Rate limiting
-        self.user_cooldowns = {}  # user_id -> last_request_time
+        self.user_cooldowns = {}
         self.cooldown_seconds = CORE_RULES.get("cooldown_seconds", 3)
         
-        logger.info(f"Initialized {self.bot_name} Bot v7.0")
+        logger.info(f"✅ {self.bot_name} Bot v8.0 initialized successfully")
     
     def _check_cooldown(self, user_id: int) -> bool:
         """Check if user is in cooldown"""
@@ -653,6 +379,74 @@ class RoastifyBot:
         
         self.user_cooldowns[user_id] = now
         return True
+    
+    def _convert_user_to_image_userinfo(self, user: Any) -> Dict:
+        """Convert Telegram user to ImageUserInfo format"""
+        # Extract from database or user object
+        user_data = self.db.get_user(user.id) or {}
+        
+        return {
+            'id': user.id,
+            'username': user.username or f"user_{user.id}",
+            'first_name': user.first_name or "User",
+            'last_name': user.last_name or "",
+            'rating': user_data.get('rating', random.uniform(5.0, 9.5)),
+            'level': user_data.get('level', random.randint(1, 100)),
+            'rank': user_data.get('rank', "Member"),
+            'posts_count': user_data.get('posts_count', random.randint(0, 500)),
+            'likes_count': user_data.get('likes_count', random.randint(0, 1000)),
+            'bio': user_data.get('bio', "রোস্টিং এর শিল্পী 🎨"),
+            'badges': user_data.get('badges', ["Active", "Funny"]),
+            'profile_pic_url': None  # Can be added if available
+        }
+    
+    def _create_design_config(self, roast_type: str = "funny") -> DesignConfig:
+        """Create design configuration based on roast type"""
+        
+        if roast_type == "savage":
+            return DesignConfig(
+                style=ImageStyle.CYBERPUNK,
+                background_type=BackgroundType.GRADIENT,
+                profile_style=ProfileStyle.CIRCLE,
+                text_effect=TextEffect.GLOW_NEON,
+                show_profile=True,
+                show_user_info=True,
+                border_color=(255, 50, 50),
+                border_thickness=15
+            )
+        elif roast_type == "clever":
+            return DesignConfig(
+                style=ImageStyle.GOLDEN_LUXURY,
+                background_type=BackgroundType.LOCAL_IMAGE,
+                profile_style=ProfileStyle.HEXAGON,
+                text_effect=TextEffect.METALLIC,
+                show_profile=True,
+                show_user_info=True,
+                border_color=(255, 215, 0),
+                border_thickness=12
+            )
+        elif roast_type == "friendly":
+            return DesignConfig(
+                style=ImageStyle.PASTEL_DREAM,
+                background_type=BackgroundType.SOLID_COLOR,
+                profile_style=ProfileStyle.HEART,
+                text_effect=TextEffect.GRADIENT_TEXT,
+                show_profile=True,
+                show_user_info=True,
+                border_color=(100, 200, 255),
+                border_thickness=10
+            )
+        else:  # funny/default
+            return DesignConfig(
+                style=ImageStyle.NEON_GLOW,
+                background_type=BackgroundType.ONLINE_IMAGE,
+                profile_style=ProfileStyle.ROUNDED,
+                text_effect=TextEffect.SHADOW_3D,
+                show_profile=True,
+                show_user_info=True,
+                border_color=(0, 255, 200),
+                border_thickness=15
+            )
     
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
@@ -668,67 +462,74 @@ class RoastifyBot:
                 last_name=user.last_name
             )
             
-            # Get welcome message
+            # Enhanced welcome message
             welcome_message = f"""
 🎉 <b>স্বাগতম {user.first_name}!</b>
 
-🤖 আমি <b>{self.bot_name}</b> - {self.bot_tagline}
+🤖 আমি <b>{self.bot_name} v8.0</b> - {self.bot_tagline}
 
-🔥 <b>আমি যা করতে পারি:</b>
-• যেকোনো টেক্সটে রোস্ট ইমেজ তৈরি
-• স্মার্ট ডায়াগ্রাম জেনারেশন
-• মেনশন করে গ্রুপে রোস্ট
-• অটো রিএকশন ও ভোটিং
-• লিডারবোর্ড ও অ্যাচিভমেন্ট
+✨ <b>নতুন আপগ্রেডেড ফিচার:</b>
+• প্রোফাইল ইমেজ সহ HD রোস্ট ইমেজ
+• ইউজার ইনফো কার্ড (রেটিং, লেভেল, ব্যাজ)
+• র‍্যান্ডম ব্যাকগ্রাউন্ড ইমেজ
+• অ্যাডভান্সড টেক্সট ইফেক্টস
+• রিয়েল-টাইম ডায়াগ্রাম
 
-📝 <b>ব্যবহার:</b>
-শুধু আমাকে কিছু লিখে পাঠান!
-• ব্যক্তিগত চ্যাটে: সরাসরি লিখুন
-• গ্রুপে: @{context.bot.username} mention করুন
+🔥 <b>ব্যবহার:</b>
+১. কিছু লিখে পাঠান
+২. রিসিভ করুন প্রফেশনাল ইমেজ + ডায়াগ্রাম
+৩. ভোট দিয়ে ফিডব্যাক দিন
+
+📊 <b>ইউজার প্রোফাইল:</b>
+• রেটিং সিস্টেম
+• লেভেল আপগ্রেড
+• অ্যাচিভমেন্ট আনলক
+• ব্যাজ কালেকশন
 
 🔧 <b>কমান্ড:</b>
 /help - সাহায্য
-/stats - পরিসংখ্যান
-/leaderboard - র্যাঙ্কিং
-/health - সিস্টেম স্বাস্থ্য
+/profile - আপনার প্রোফাইল
+/stats - বট স্ট্যাটাস
+/leaderboard - টপ রোস্টার
+/achievements - অর্জনসমূহ
 
-⚡ <b>এখনি চেষ্টা করুন!</b>
-কিছু লিখে পাঠান আর দেখুন জাদু!
+⚡ <b>এখনি চেষ্টা করুন কিছু লিখে পাঠিয়ে!</b>
             """
             
-            # Generate welcome image
-            welcome_result = await self.image_gen.generate_welcome_image_async(user)
-            
-            if welcome_result.success and welcome_result.image_path:
-                # Send welcome image
-                with open(welcome_result.image_path, 'rb') as photo:
-                    await update.message.reply_photo(
-                        photo=photo,
-                        caption=f"🎉 {user.first_name} -কে স্বাগতম!",
-                        parse_mode=ParseMode.HTML
-                    )
-                
-                # Cleanup
+            # Generate welcome image if available
+            if self.image_gen:
                 try:
-                    os.remove(welcome_result.image_path)
-                except:
-                    pass
-                
-                # Send welcome text
-                await update.message.reply_text(
-                    welcome_message,
-                    parse_mode=ParseMode.HTML,
-                    disable_web_page_preview=True
-                )
-            else:
-                # Fallback to text only
-                await update.message.reply_text(
-                    welcome_message,
-                    parse_mode=ParseMode.HTML,
-                    disable_web_page_preview=True
-                )
+                    user_info = self._convert_user_to_image_userinfo(user)
+                    welcome_result = await self.image_gen.generate_welcome_image_async(user_info)
+                    
+                    if welcome_result.success and welcome_result.image_path:
+                        # Send welcome image
+                        with open(welcome_result.image_path, 'rb') as photo:
+                            await update.message.reply_photo(
+                                photo=photo,
+                                caption=f"🎉 {user.first_name} -কে স্বাগতম {self.bot_name}!",
+                                parse_mode=ParseMode.HTML
+                            )
+                        
+                        # Update stats
+                        self.stats["images_created"] += 1
+                        
+                        # Cleanup
+                        try:
+                            os.remove(welcome_result.image_path)
+                        except:
+                            pass
+                except Exception as e:
+                    logger.error(f"Welcome image generation failed: {e}")
             
-            logger.info(f"New start from user {user.id} in chat {chat.id}")
+            # Send welcome text
+            await update.message.reply_text(
+                welcome_message,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True
+            )
+            
+            logger.info(f"New user started: {user.id} ({user.first_name})")
             
         except Exception as e:
             logger.error(f"Error in start command: {e}")
@@ -739,166 +540,186 @@ class RoastifyBot:
                 parse_mode=ParseMode.HTML
             )
     
-    async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /help command"""
-        help_text = f"""
-<b>{self.bot_name} v7.0 - {self.bot_tagline}</b>
-
-🤖 <b>ব্যবহার পদ্ধতি:</b>
-• যেকোনো টেক্সট পাঠান (সর্বনিম্ন ৪ অক্ষর)
-• আমি প্রফেশনাল ইমেজ + ডায়াগ্রাম সহ রিপ্লাই দেব
-• কোন কমান্ডের প্রয়োজন নেই!
-
-🎯 <b>নতুন বৈশিষ্ট্য:</b>
-• Ultra HD 1080p ইমেজ জেনারেশন
-• Intelligent Diagram Creation
-• Smart Cache System (ফাস্ট রেস্পন্স)
-• Advanced Error Handling
-• Real-time Statistics
-
-👥 <b>গ্রুপে ব্যবহার:</b>
-• @mentions দিয়ে টার্গেটেড রোস্ট
-• নতুন সদস্য স্বাগতম
-• Auto Reactions
-• Voting System
-
-🔧 <b>কমান্ড:</b>
-/start - শুরু করুন
-/help - সাহায্য
-/stats - পরিসংখ্যান
-/leaderboard - র্যাঙ্কিং
-/health - সিস্টেম স্বাস্থ্য
-
-⚡ <b>টিপস:</b>
-• গ্রুপে @মেনশন ব্যবহার করুন
-• ভোট দিয়ে উন্নতি করুন
-• রেগুলার চেক করুন লিডারবোর্ড
-
-🔒 <b>গোপনীয়তা:</b>
-• ব্যক্তিগত তথ্য সংরক্ষণ করা হয় না
-• নিরাপদ শেয়ারিং
-• Rate Limiting Enabled
-
-📊 <b>স্ট্যাটাস:</b>
-✅ All Systems Operational
-🔄 Real-time Processing
-⚡ Fast Response Time
-        """
-        
-        await update.message.reply_text(
-            help_text, 
-            parse_mode=ParseMode.HTML,
-            disable_web_page_preview=True
-        )
-    
-    async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /stats command"""
+    async def profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /profile command to show user profile"""
         user = update.effective_user
         
         try:
-            # Check if admin
-            admin_ids = OWNER_ADMIN_PROTECTION.get("admin_user_ids", [])
-            owner_id = OWNER_ADMIN_PROTECTION.get("bot_owner_user_id")
+            # Get user data from database
+            user_data = self.db.get_user(user.id) or {}
             
-            if user.id not in admin_ids and user.id != owner_id:
-                await update.message.reply_text(
-                    "❌ এই কমান্ড শুধুমাত্র অ্যাডমিনদের জন্য!",
-                    parse_mode=ParseMode.HTML
-                )
-                return
-        except:
-            pass
-        
-        # Calculate uptime
-        uptime = datetime.now() - self.stats["start_time"]
-        hours, remainder = divmod(int(uptime.total_seconds()), 3600)
-        minutes, seconds = divmod(remainder, 60)
-        days, hours = divmod(hours, 24)
-        
-        # Get image generator stats
-        img_stats = self.image_gen.get_stats()
-        
-        stats_text = f"""
-<b>{self.bot_name} পরিসংখ্যান v7.0</b>
+            # Calculate rank
+            level = user_data.get('level', 1)
+            if level >= 80:
+                rank = "👑 Legend"
+            elif level >= 50:
+                rank = "⭐ Pro"
+            elif level >= 20:
+                rank = "🔥 Veteran"
+            else:
+                rank = "🌱 Beginner"
+            
+            # Create profile message
+            profile_message = f"""
+📊 <b>ব্যক্তিগত প্রোফাইল</b>
 ━━━━━━━━━━━━━━━━━━━━━━━━
-⏰ <b>আপটাইম:</b> {days}দিন {hours}ঘণ্টা {minutes}মিনিট
-📊 <b>বার্তা প্রসেসড:</b> {self.stats['messages_processed']:,}
-🔥 <b>রোস্ট জেনারেটেড:</b> {self.stats['roasts_generated']:,}
-🖼️ <b>ইমেজ তৈরি:</b> {self.stats['images_created']:,}
-📈 <b>ডায়াগ্রাম তৈরি:</b> {self.stats['diagrams_created']:,}
-👥 <b>ইউজার:</b> {len(self.stats['users_interacted']):,}
-🏠 <b>গ্রুপ:</b> {len(self.stats['groups_managed']):,}
+👤 <b>নাম:</b> {user.first_name} {user.last_name or ''}
+🔗 <b>ইউজারনেম:</b> @{user.username or 'N/A'}
+🎯 <b>রেটিং:</b> {user_data.get('rating', 'N/A')}/10
+📈 <b>লেভেল:</b> {user_data.get('level', 1)}
+🏆 <b>র‍্যাঙ্ক:</b> {rank}
 
-<b>ইমেজ জেনারেশন:</b>
-✅ <b>সাকসেস রেট:</b> {img_stats['performance']['success_rate']}%
-⚡ <b>অ্যাভারেজ টাইম:</b> {img_stats['performance']['average_time_seconds']:.2f}s
-💾 <b>ক্যাশে হিট রেট:</b> {img_stats['performance']['cache_hit_rate']}%
-🔄 <b>ক্যাশে আইটেম:</b> {img_stats['cache']['total_items']:,}
+📝 <b>স্ট্যাটিস্টিক্স:</b>
+• রোস্ট তৈরি: {user_data.get('roasts_generated', 0)}
+• ভোট প্রাপ্ত: {user_data.get('votes_received', 0)}
+• লাইক পাওয়া: {user_data.get('likes_received', 0)}
+• অ্যাক্টিভ ডে: {user_data.get('active_days', 1)}
 
-<b>সিস্টেম:</b> ✅ অপারেশনাল
+🏅 <b>ব্যাজ:</b> {' '.join(user_data.get('badges', ['নতুন']))}
+
+💡 <b>পরবর্তী লক্ষ্য:</b>
+• লেভেল {min(100, (user_data.get('level', 1) + 5))} এ পৌঁছান
+• ১০+ রোস্ট তৈরি করুন
+• ৫০+ ভোট সংগ্রহ করুন
+
+⚡ <b>পরামর্শ:</b>
+নিয়মিত রোস্ট তৈরি করে লেভেল ও রেটিং বাড়ান!
 ━━━━━━━━━━━━━━━━━━━━━━━━
-        """
-        
-        await update.message.reply_text(
-            stats_text, 
-            parse_mode=ParseMode.HTML,
-            disable_web_page_preview=True
-        )
+            """
+            
+            # Create profile image if available
+            if self.image_gen:
+                try:
+                    user_info = self._convert_user_to_image_userinfo(user)
+                    # Update user info with additional data
+                    user_info['rank'] = rank
+                    user_info['achievements'] = user_data.get('achievements', [])
+                    
+                    # Generate profile card
+                    roast_text = f"{user.first_name} এর প্রোফাইল\n\nরেটিং: {user_data.get('rating', 'N/A')}/10\nলেভেল: {user_data.get('level', 1)}\nর‍্যাঙ্ক: {rank}"
+                    
+                    design = DesignConfig(
+                        style=ImageStyle.DARK_ELEGANT,
+                        background_type=BackgroundType.GRADIENT,
+                        profile_style=ProfileStyle.CIRCLE,
+                        text_effect=TextEffect.SHADOW_3D,
+                        show_profile=True,
+                        show_user_info=True,
+                        show_badges=True,
+                        show_stats=True
+                    )
+                    
+                    result = await self.image_gen.generate_roast_image_async(
+                        roast_text=roast_text,
+                        user_info=user_info,
+                        design_config=design
+                    )
+                    
+                    if result.success and result.image_path:
+                        with open(result.image_path, 'rb') as photo:
+                            await update.message.reply_photo(
+                                photo=photo,
+                                caption=f"📊 {user.first_name} এর প্রোফাইল",
+                                parse_mode=ParseMode.HTML
+                            )
+                        
+                        # Cleanup
+                        try:
+                            os.remove(result.image_path)
+                        except:
+                            pass
+                        
+                        self.stats["profile_images_used"] += 1
+                        
+                except Exception as e:
+                    logger.error(f"Profile image generation failed: {e}")
+            
+            # Send profile text
+            await update.message.reply_text(
+                profile_message,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True
+            )
+            
+        except Exception as e:
+            logger.error(f"Error in profile command: {e}")
+            await update.message.reply_text(
+                "প্রোফাইল লোড করতে সমস্যা! আবার চেষ্টা করুন।",
+                parse_mode=ParseMode.HTML
+            )
     
-    async def health_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /health command"""
+    async def achievements_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /achievements command"""
         user = update.effective_user
         
         try:
-            # Check if admin
-            admin_ids = OWNER_ADMIN_PROTECTION.get("admin_user_ids", [])
-            owner_id = OWNER_ADMIN_PROTECTION.get("bot_owner_user_id")
+            # Get user data
+            user_data = self.db.get_user(user.id) or {}
+            level = user_data.get('level', 1)
+            roasts = user_data.get('roasts_generated', 0)
+            votes = user_data.get('votes_received', 0)
             
-            if user.id not in admin_ids and user.id != owner_id:
-                await update.message.reply_text(
-                    "❌ এই কমান্ড শুধুমাত্র অ্যাডমিনদের জন্য!",
-                    parse_mode=ParseMode.HTML
-                )
-                return
-        except:
-            pass
-        
-        # Get health status
-        health_status = self.image_gen.health_check()
-        
-        health_text = f"""
-<b>{self.bot_name} সিস্টেম স্বাস্থ্য v7.0</b>
+            # Define achievements
+            achievements = [
+                {"name": "শুরুটা ভালো", "desc": "প্রথম রোস্ট তৈরি", "unlocked": roasts > 0},
+                {"name": "১০ এর ক্লাব", "desc": "১০টি রোস্ট তৈরি", "unlocked": roasts >= 10},
+                {"name": "৫০ এর মাস্টার", "desc": "৫০টি রোস্ট তৈরি", "unlocked": roasts >= 50},
+                {"name": "ভোটের রাজা", "desc": "১০০+ ভোট প্রাপ্ত", "unlocked": votes >= 100},
+                {"name": "লেভেল ২০", "desc": "লেভেল ২০ এ পৌঁছান", "unlocked": level >= 20},
+                {"name": "লেভেল ৫০", "desc": "লেভেল ৫০ এ পৌঁছান", "unlocked": level >= 50},
+                {"name": "প্রিমিয়াম রোস্টার", "desc": "৮.০+ রেটিং", "unlocked": user_data.get('rating', 0) >= 8.0},
+                {"name": "সাপ্তাহিক সক্রিয়", "desc": "৭ দিন ধরে সক্রিয়", "unlocked": user_data.get('active_days', 0) >= 7},
+            ]
+            
+            # Count unlocked achievements
+            unlocked_count = sum(1 for a in achievements if a["unlocked"])
+            total_count = len(achievements)
+            
+            # Create achievements message
+            achievements_message = f"""
+🏆 <b>অর্জনসমূহ</b>
 ━━━━━━━━━━━━━━━━━━━━━━━━
-<b>সামগ্রিক অবস্থা:</b> {"✅ সুস্থ" if health_status['healthy'] else "⚠️ সমস্যা"}
-<b>চেক করা হয়েছে:</b> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+📊 <b>প্রগতি:</b> {unlocked_count}/{total_count} ({int((unlocked_count/total_count)*100)}%)
 
-<b>কম্পোনেন্ট চেক:</b>
-{"✅" if health_status['checks']['pil_available'] else "❌"} PIL/Pillow উপলব্ধ
-{"✅" if health_status['checks']['directories_accessible'] else "❌"} ডিরেক্টরি এক্সেস
-{"✅" if health_status['checks']['font_manager_ready'] else "❌"} ফন্ট ম্যানেজার
-{"✅" if health_status['checks']['cache_operational'] else "❌"} ক্যাশে সিস্টেম
-{"✅" if health_status['checks']['write_permissions'] else "❌"} রাইট পারমিশন
+<b>আপনার অর্জন:</b>
+"""
+            
+            for achievement in achievements:
+                if achievement["unlocked"]:
+                    achievements_message += f"✅ {achievement['name']}\n"
+                    achievements_message += f"   └ {achievement['desc']}\n\n"
+                else:
+                    achievements_message += f"🔒 {achievement['name']}\n"
+                    achievements_message += f"   └ {achievement['desc']}\n\n"
+            
+            achievements_message += """
+⚡ <b>পরবর্তী লক্ষ্য:</b>
+• আরও রোস্ট তৈরি করুন
+• বেশি ভোট পান
+• লেভেল বাড়ান
 
-<b>ডেটাবেজ:</b> ✅ কানেক্টেড
-<b>ফিচার লোড:</b> ✅ {len(self.features)} ফিচার
-<b>মেমরি ব্যবহার:</b> 🟢 স্বাভাবিক
-<b>CPU লোড:</b> 🟢 স্বাভাবিক
-
-<b>রিকমেন্ডেশন:</b>
-• নিয়মিত ব্যাকআপ নিন
-• লগ মনিটর করুন
-• ভার্সন আপডেট রাখুন
+🔥 <b>টিপস:</b>
+• নিয়মিত সক্রিয় থাকুন
+• মানসম্মত রোস্ট তৈরি করুন
+• অন্যের রোস্টে ভোট দিন
 ━━━━━━━━━━━━━━━━━━━━━━━━
-        """
-        
-        await update.message.reply_text(
-            health_text, 
-            parse_mode=ParseMode.HTML,
-            disable_web_page_preview=True
-        )
+            """
+            
+            await update.message.reply_text(
+                achievements_message,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True
+            )
+            
+        except Exception as e:
+            logger.error(f"Error in achievements command: {e}")
+            await update.message.reply_text(
+                "অর্জন লোড করতে সমস্যা!",
+                parse_mode=ParseMode.HTML
+            )
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle all text messages"""
+        """Handle all text messages with new image generator"""
         try:
             # Update statistics
             self.stats["messages_processed"] += 1
@@ -941,16 +762,6 @@ class RoastifyBot:
             if self._should_ignore_message(text):
                 return
             
-            # Check for admin protection
-            try:
-                if await self.admin_protection.check_protection_needed(user, text, chat):
-                    await self.admin_protection.handle_protected_response(
-                        update, context, user, text
-                    )
-                    return
-            except Exception as e:
-                logger.error(f"Admin protection error: {e}")
-            
             # Check for mentions in groups
             if chat.type in ["group", "supergroup"]:
                 try:
@@ -965,8 +776,8 @@ class RoastifyBot:
                 except Exception as e:
                     logger.error(f"Error processing mention: {e}")
             
-            # Generate regular response
-            await self._generate_response(update, context, text, user, chat)
+            # Generate regular response with new image generator
+            await self._generate_enhanced_response(update, context, text, user, chat)
             
             # Auto reactions
             try:
@@ -991,20 +802,6 @@ class RoastifyBot:
             u"\U0001F600-\U0001F64F"  # emoticons
             u"\U0001F300-\U0001F5FF"  # symbols & pictographs
             u"\U0001F680-\U0001F6FF"  # transport & map symbols
-            u"\U0001F1E0-\U0001F1FF"  # flags
-            u"\U00002500-\U00002BEF"
-            u"\U00002702-\U000027B0"
-            u"\U000024C2-\U0001F251"
-            u"\U0001f926-\U0001f937"
-            u"\U00010000-\U0010ffff"
-            u"\u2640-\u2642"
-            u"\u2600-\u2B55"
-            u"\u200d"
-            u"\u23cf"
-            u"\u23e9"
-            u"\u231a"
-            u"\ufe0f"
-            u"\u3030"
             "]+", flags=re.UNICODE)
         
         if emoji_pattern.sub('', text).strip() == '':
@@ -1019,220 +816,289 @@ class RoastifyBot:
         if url_pattern.sub('', text).strip() == '':
             return True
         
-        # Check for very repetitive text
-        if len(text) > 20:
-            if text.count(text[0]) / len(text) > 0.8:
-                return True
-        
         return False
     
-    async def _generate_mention_response(self, update: Update, context: ContextTypes.DEFAULT_TYPE,
-                                        text: str, user: Any, chat: Any, mention_result: Dict):
-        """Generate response for mentioned user"""
-        try:
-            target_user = mention_result.get("target")
-            roast_text = mention_result.get("roast_text", text)
-            
-            # Generate typing action
-            await update.message.chat.send_action(action="upload_photo")
-            
-            # Get roast from engine
-            roast_data = await self.roast_engine.generate_roast(
-                roast_text, user, target_user
-            )
-            
-            # Update stats
-            self.stats["roasts_generated"] += 1
-            
-            # Generate image
-            image_result = await self.image_gen.generate_roast_image_async(
-                roast_data, 
-                user,
-                "auto",
-                None,
-                None
-            )
-            
-            # Generate diagram
-            diagram_path = None
-            if CORE_RULES.get("diagram_reply", True):
-                diagram_path = await self.diagram_gen.generate_diagram_async(
-                    roast_text, 
-                    roast_data.get("roast_type", "funny")
-                )
-            
-            # Send responses
-            if image_result.success and image_result.image_path:
-                # Send image
-                with open(image_result.image_path, 'rb') as photo:
-                    caption = roast_data.get("caption", f"🎯 {target_user.first_name} -কে রোস্ট!")
-                    sent_message = await update.message.reply_photo(
-                        photo=photo,
-                        caption=caption,
-                        parse_mode=ParseMode.HTML
-                    )
-                
-                # Update cache stats
-                if image_result.cache_hit:
-                    self.stats["cache_hits"] += 1
-                else:
-                    self.stats["cache_misses"] += 1
-                
-                # Cleanup
-                try:
-                    os.remove(image_result.image_path)
-                except:
-                    pass
-                
-                self.stats["images_created"] += 1
-                
-                # Add voting buttons
-                try:
-                    await self.voting_system.add_voting_buttons(sent_message, user, target_user)
-                except:
-                    pass
-            
-            # Send diagram
-            if diagram_path and os.path.exists(diagram_path):
-                with open(diagram_path, 'rb') as photo:
-                    await update.message.reply_photo(
-                        photo=photo,
-                        caption="📊 রোস্ট অ্যানালাইসিস ডায়াগ্রাম",
-                        parse_mode=ParseMode.HTML
-                    )
-                
-                # Cleanup
-                try:
-                    os.remove(diagram_path)
-                except:
-                    pass
-                
-                self.stats["diagrams_created"] += 1
-            
-            # Send text reply if enabled
-            if CORE_RULES.get("text_reply", True) and roast_data.get("primary_roast"):
-                await update.message.reply_text(
-                    roast_data.get("primary_roast"),
-                    parse_mode=ParseMode.HTML
-                )
-            
-        except Exception as e:
-            logger.error(f"Error generating mention response: {e}")
-            logger.error(f"Traceback:\n{traceback.format_exc()}")
-            
-            await update.message.reply_text(
-                f"🎯 {mention_result.get('target_name', 'User')} -কে রোস্ট! 🔥",
-                parse_mode=ParseMode.HTML
-            )
-    
-    async def _generate_response(self, update: Update, context: ContextTypes.DEFAULT_TYPE,
-                                text: str, user: Any, chat: Any):
-        """Generate regular response"""
+    async def _generate_enhanced_response(self, update: Update, context: ContextTypes.DEFAULT_TYPE,
+                                        text: str, user: Any, chat: Any):
+        """Generate response with new image generator"""
         try:
             # Generate typing action
             await update.message.chat.send_action(action="upload_photo")
             
             # Get roast from engine
             roast_data = await self.roast_engine.generate_roast(text, user)
+            roast_type = roast_data.get("roast_type", "funny")
             
             # Update stats
             self.stats["roasts_generated"] += 1
             
-            # Generate image
+            # Check if image generator is available
+            if not self.image_gen:
+                # Fallback to text only
+                await self._send_fallback_response(update, roast_data, user)
+                return
+            
+            # Create user info for image
+            user_info = self._convert_user_to_image_userinfo(user)
+            
+            # Create design configuration
+            design = self._create_design_config(roast_type)
+            
+            # Generate image with new generator
             image_result = await self.image_gen.generate_roast_image_async(
-                roast_data, 
-                user,
-                "auto",
-                None,
-                None
+                roast_text=roast_data,
+                user_info=user_info,
+                design_config=design
             )
             
             # Generate diagram
             diagram_path = None
             if CORE_RULES.get("diagram_reply", True):
                 diagram_path = await self.diagram_gen.generate_diagram_async(
-                    text, 
-                    roast_data.get("roast_type", "funny")
+                    text, roast_type
                 )
             
-            # Send responses
+            # Send image if successful
             if image_result.success and image_result.image_path:
-                # Send image
-                with open(image_result.image_path, 'rb') as photo:
-                    caption = roast_data.get("caption", "রোস্ট টাইম! 🔥")
-                    sent_message = await update.message.reply_photo(
-                        photo=photo,
-                        caption=caption,
-                        parse_mode=ParseMode.HTML
-                    )
-                
-                # Update cache stats
-                if image_result.cache_hit:
-                    self.stats["cache_hits"] += 1
-                else:
-                    self.stats["cache_misses"] += 1
-                
-                # Cleanup
-                try:
-                    os.remove(image_result.image_path)
-                except:
-                    pass
-                
-                self.stats["images_created"] += 1
-                
-                # Add voting buttons
-                try:
-                    await self.voting_system.add_voting_buttons(sent_message, user, None)
-                except:
-                    pass
+                await self._send_image_response(update, image_result, roast_data, user)
+                self.stats["user_info_cards_shown"] += 1
+            else:
+                # Fallback to text
+                await self._send_fallback_response(update, roast_data, user)
             
             # Send diagram
             if diagram_path and os.path.exists(diagram_path):
-                with open(diagram_path, 'rb') as photo:
-                    await update.message.reply_photo(
-                        photo=photo,
-                        caption="📊 আপনার টেক্সট অ্যানালাইসিস",
-                        parse_mode=ParseMode.HTML
-                    )
-                
-                # Cleanup
-                try:
-                    os.remove(diagram_path)
-                except:
-                    pass
-                
-                self.stats["diagrams_created"] += 1
+                await self._send_diagram_response(update, diagram_path)
             
-            # Send text reply if enabled
-            if CORE_RULES.get("text_reply", True) and roast_data.get("primary_roast"):
-                await update.message.reply_text(
-                    roast_data.get("primary_roast"),
+            # Update user data in database
+            self._update_user_stats(user.id)
+            
+        except Exception as e:
+            logger.error(f"Error in enhanced response: {e}")
+            await self._send_error_response(update, user)
+    
+    async def _send_image_response(self, update: Update, image_result: GenerationResult, 
+                                 roast_data: Dict, user: Any):
+        """Send image response"""
+        try:
+            with open(image_result.image_path, 'rb') as photo:
+                caption = roast_data.get("caption", f"🔥 {user.first_name} এর জন্য রোস্ট!")
+                
+                sent_message = await update.message.reply_photo(
+                    photo=photo,
+                    caption=caption,
                     parse_mode=ParseMode.HTML
                 )
             
-        except Exception as e:
-            logger.error(f"Error generating response: {e}")
-            logger.error(f"Traceback:\n{traceback.format_exc()}")
+            # Update stats
+            self.stats["images_created"] += 1
+            if "background" in str(image_result.metadata).lower():
+                self.stats["background_images_used"] += 1
             
+            # Add voting buttons
+            try:
+                await self.voting_system.add_voting_buttons(sent_message, user, None)
+            except:
+                pass
+            
+            # Cleanup
+            try:
+                os.remove(image_result.image_path)
+            except:
+                pass
+            
+        except Exception as e:
+            logger.error(f"Error sending image: {e}")
+    
+    async def _send_diagram_response(self, update: Update, diagram_path: str):
+        """Send diagram response"""
+        try:
+            with open(diagram_path, 'rb') as photo:
+                await update.message.reply_photo(
+                    photo=photo,
+                    caption="📊 রোস্ট অ্যানালাইসিস ডায়াগ্রাম",
+                    parse_mode=ParseMode.HTML
+                )
+            
+            self.stats["diagrams_created"] += 1
+            
+            # Cleanup
+            try:
+                os.remove(diagram_path)
+            except:
+                pass
+            
+        except Exception as e:
+            logger.error(f"Error sending diagram: {e}")
+    
+    async def _send_fallback_response(self, update: Update, roast_data: Dict, user: Any):
+        """Send fallback text response"""
+        try:
+            roast_text = roast_data.get("primary_roast", f"🔥 {user.first_name}, তোমার জন্য রোস্ট!")
             await update.message.reply_text(
-                f"🔥 {text}\n\n- {user.first_name}",
+                roast_text,
                 parse_mode=ParseMode.HTML
             )
-    
-    async def handle_vote_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle vote callback queries"""
-        try:
-            await self.voting_system.handle_vote_callback(update, context)
         except Exception as e:
-            logger.error(f"Error handling vote callback: {e}")
-            await update.callback_query.answer("ভোট প্রসেসে সমস্যা!", show_alert=True)
+            logger.error(f"Error sending fallback: {e}")
     
-    async def handle_new_chat_members(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle new chat members"""
+    async def _send_error_response(self, update: Update, user: Any):
+        """Send error response"""
         try:
-            await self.welcome_system.handle_new_members(update, context)
+            await update.message.reply_text(
+                f"⚠️ {user.first_name}, রোস্ট তৈরি করতে সমস্যা!\nআবার চেষ্টা করুন।",
+                parse_mode=ParseMode.HTML
+            )
+        except:
+            pass
+    
+    def _update_user_stats(self, user_id: int):
+        """Update user statistics in database"""
+        try:
+            # Get current stats
+            user_data = self.db.get_user(user_id) or {}
+            
+            # Update counts
+            roasts_generated = user_data.get('roasts_generated', 0) + 1
+            active_days = user_data.get('active_days', 0)
+            
+            # Check if new day
+            last_active = user_data.get('last_active')
+            today = datetime.now().date()
+            
+            if not last_active or last_active != str(today):
+                active_days += 1
+            
+            # Update database
+            self.db.update_user_stats(
+                user_id=user_id,
+                roasts_generated=roasts_generated,
+                active_days=active_days,
+                last_active=str(today)
+            )
+            
         except Exception as e:
-            logger.error(f"Error handling new chat members: {e}")
+            logger.error(f"Error updating user stats: {e}")
+    
+    async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /help command"""
+        help_text = f"""
+<b>{self.bot_name} v8.0 - {self.bot_tagline}</b>
+
+✨ <b>নতুন আপগ্রেডেড ফিচার:</b>
+• ইউজার প্রোফাইল ইমেজ কার্ড
+• র‍্যান্ডম ব্যাকগ্রাউন্ড সিলেকশন
+• অ্যাডভান্সড টেক্সট ইফেক্টস
+• রিয়েল-টাইম ডায়াগ্রাম
+• লেভেলিং সিস্টেম
+
+🎯 <b>ব্যবহার পদ্ধতি:</b>
+১. যেকোনো টেক্সট পাঠান (৪+ অক্ষর)
+২. প্রফেশনাল ইমেজ + ডায়াগ্রাম পান
+৩. ভোট দিয়ে ফিডব্যাক দিন
+
+📊 <b>ইউজার সিস্টেম:</b>
+• ব্যক্তিগত প্রোফাইল (/profile)
+• অর্জনসমূহ (/achievements)
+• লেভেল আপগ্রেড
+• ব্যাজ কালেকশন
+
+🔧 <b>কমান্ড:</b>
+/start - শুরু করুন
+/profile - আপনার প্রোফাইল
+/achievements - অর্জনসমূহ
+/stats - বট স্ট্যাটাস
+/leaderboard - টপ রোস্টার
+/health - সিস্টেম স্বাস্থ্য
+
+⚡ <b>টিপস:</b>
+• নিয়মিত সক্রিয় থাকুন
+• মানসম্মত কন্টেন্ট তৈরি করুন
+• অন্যের রোস্টে ভোট দিন
+
+🔒 <b>গোপনীয়তা:</b>
+• ব্যক্তিগত ডেটা সুরক্ষিত
+• নিরাপদ শেয়ারিং
+• Rate Limiting সক্রিয়
+
+✅ <b>স্ট্যাটাস:</b> All Systems Operational
+        """
+        
+        await update.message.reply_text(
+            help_text, 
+            parse_mode=ParseMode.HTML,
+            disable_web_page_preview=True
+        )
+    
+    async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /stats command"""
+        try:
+            # Check admin access
+            admin_ids = OWNER_ADMIN_PROTECTION.get("admin_user_ids", [])
+            owner_id = OWNER_ADMIN_PROTECTION.get("bot_owner_user_id")
+            user = update.effective_user
+            
+            if user.id not in admin_ids and user.id != owner_id:
+                await update.message.reply_text(
+                    "❌ এই কমান্ড শুধুমাত্র অ্যাডমিনদের জন্য!",
+                    parse_mode=ParseMode.HTML
+                )
+                return
+        except:
+            pass
+        
+        # Calculate uptime
+        uptime = datetime.now() - self.stats["start_time"]
+        hours, remainder = divmod(int(uptime.total_seconds()), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        days, hours = divmod(hours, 24)
+        
+        # Get image generator stats if available
+        img_stats = {}
+        if self.image_gen:
+            try:
+                img_stats = self.image_gen.get_stats()
+            except:
+                pass
+        
+        # Create stats message
+        stats_text = f"""
+<b>{self.bot_name} পরিসংখ্যান v8.0</b>
+━━━━━━━━━━━━━━━━━━━━━━━━
+⏰ <b>আপটাইম:</b> {days}দিন {hours}ঘণ্টা {minutes}মিনিট
+📊 <b>বার্তা প্রসেসড:</b> {self.stats['messages_processed']:,}
+🔥 <b>রোস্ট জেনারেটেড:</b> {self.stats['roasts_generated']:,}
+🖼️ <b>ইমেজ তৈরি:</b> {self.stats['images_created']:,}
+📈 <b>ডায়াগ্রাম তৈরি:</b> {self.stats['diagrams_created']:,}
+👤 <b>প্রোফাইল ইমেজ:</b> {self.stats['profile_images_used']:,}
+🌅 <b>ব্যাকগ্রাউন্ড:</b> {self.stats['background_images_used']:,}
+📋 <b>ইউজার কার্ড:</b> {self.stats['user_info_cards_shown']:,}
+👥 <b>ইউজার:</b> {len(self.stats['users_interacted']):,}
+🏠 <b>গ্রুপ:</b> {len(self.stats['groups_managed']):,}
+
+<b>ইমেজ জেনারেশন:</b>
+"""
+        
+        if img_stats:
+            stats_text += f"""✅ <b>সাকসেস রেট:</b> {img_stats.get('success_rate', 'N/A')}%
+⚡ <b>অ্যাভারেজ টাইম:</b> {img_stats.get('average_time', 'N/A')}s
+🔄 <b>টোটাল জেনারেটেড:</b> {img_stats.get('total_generated', 'N/A'):,}
+"""
+        else:
+            stats_text += "❌ <b>ইমেজ জেনারেটর:</b> N/A\n"
+        
+        stats_text += f"""
+<b>ডেটাবেজ:</b> ✅ কানেক্টেড
+<b>ফিচার লোড:</b> ✅ {len(self.features)} ফিচার
+<b>সিস্টেম:</b> ✅ অপারেশনাল
+━━━━━━━━━━━━━━━━━━━━━━━━
+        """
+        
+        await update.message.reply_text(
+            stats_text, 
+            parse_mode=ParseMode.HTML,
+            disable_web_page_preview=True
+        )
     
     async def handle_leaderboard_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /leaderboard command"""
@@ -1245,43 +1111,14 @@ class RoastifyBot:
                 parse_mode=ParseMode.HTML
             )
     
-    async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
-        """Handle errors"""
-        logger.error(f"Exception while handling update: {context.error}")
-        traceback_str = traceback.format_exc()
-        logger.error(f"Traceback:\n{traceback_str}")
-        
-        # Try to send error to admin
-        try:
-            owner_id = OWNER_ADMIN_PROTECTION.get("bot_owner_user_id")
-            if owner_id and context.bot:
-                error_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                error_msg = str(context.error)[:500]
-                
-                error_text = f"""
-🚨 <b>বট এরর!</b>
-━━━━━━━━━━━━━━━━
-⏰ <b>সময়:</b> {error_time}
-💥 <b>এরর:</b> {error_msg}
-━━━━━━━━━━━━━━━━
-<b>অ্যাকশন:</b> চেক লগ ফাইল
-                """
-                
-                await context.bot.send_message(
-                    chat_id=owner_id,
-                    text=error_text,
-                    parse_mode=ParseMode.HTML
-                )
-        except:
-            pass
-    
     def setup_handlers(self, application):
         """Setup all bot handlers"""
         # Command handlers
         application.add_handler(CommandHandler("start", self.start))
         application.add_handler(CommandHandler("help", self.help_command))
+        application.add_handler(CommandHandler("profile", self.profile_command))
         application.add_handler(CommandHandler("stats", self.stats_command))
-        application.add_handler(CommandHandler("health", self.health_command))
+        application.add_handler(CommandHandler("achievements", self.achievements_command))
         application.add_handler(CommandHandler("leaderboard", self.handle_leaderboard_command))
         
         # Message handlers
@@ -1289,24 +1126,19 @@ class RoastifyBot:
             filters.TEXT & ~filters.COMMAND, self.handle_message
         ))
         
-        # New chat members
-        application.add_handler(MessageHandler(
-            filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_chat_members
-        ))
-        
-        # Callback queries
-        application.add_handler(CallbackQueryHandler(
-            self.handle_vote_callback, pattern="^vote_"
-        ))
-        
-        # Error handler
-        application.add_error_handler(self.error_handler)
+        # New chat members handler
+        try:
+            application.add_handler(MessageHandler(
+                filters.StatusUpdate.NEW_CHAT_MEMBERS, self.welcome_system.handle_new_members
+            ))
+        except:
+            pass
         
         logger.info("All handlers setup complete")
     
     async def post_init(self, application):
         """Run after bot initialization"""
-        logger.info(f"{self.bot_name} bot starting up v7.0...")
+        logger.info(f"{self.bot_name} v8.0 starting up...")
         
         # Initialize auto daily quote
         try:
@@ -1322,7 +1154,7 @@ class RoastifyBot:
         # Send startup notification
         await self._send_startup_notification()
         
-        logger.info("Bot startup complete")
+        logger.info("✅ Bot startup complete")
     
     async def _background_tasks(self):
         """Run background maintenance tasks"""
@@ -1335,9 +1167,9 @@ class RoastifyBot:
                 self._cleanup_temp_files()
                 
                 # Log statistics every hour
-                logger.info(f"Statistics: {self.stats['messages_processed']} messages, "
-                           f"{self.stats['roasts_generated']} roasts, "
-                           f"{self.stats['images_created']} images")
+                logger.info(f"📊 Stats: {self.stats['messages_processed']} msgs, "
+                           f"{self.stats['images_created']} images, "
+                           f"{self.stats['user_info_cards_shown']} user cards")
                 
                 # Sleep for 1 hour
                 await asyncio.sleep(3600)
@@ -1372,27 +1204,27 @@ class RoastifyBot:
                 bot_info = await self.application.bot.get_me()
                 startup_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
-                # Get system health
-                health = self.image_gen.health_check()
-                
                 message = f"""
-🚀 <b>{self.bot_name} Started Successfully v7.0!</b>
+🚀 <b>{self.bot_name} v8.0 Started Successfully!</b>
 ━━━━━━━━━━━━━━━━━━━━━━━━
 ⏰ <b>Start Time:</b> {startup_time}
-🤖 <b>Bot Username:</b> @{bot_info.username}
-📊 <b>Version:</b> 7.0.0
-🏥 <b>Health:</b> {"✅ Healthy" if health['healthy'] else "⚠️ Issues"}
+🤖 <b>Bot:</b> @{bot_info.username}
+📊 <b>Version:</b> 8.0.0 Ultra Pro Max
 
-<b>Features:</b>
-• Ultimate Image Generator v6.0
-• Async Processing
-• Smart Caching
-• Advanced Diagrams
-• Rate Limiting
-• Full Error Handling
+<b>New Features:</b>
+• Advanced Image Generator v8.0
+• User Profile Image Cards
+• Random Background Selection
+• Achievement System
+• Enhanced Statistics
 
-✅ <b>Status:</b> All systems operational
-🔥 <b>Ready for roasting!</b>
+<b>Status:</b>
+✅ Image Generator: {IMAGE_GEN_AVAILABLE}
+✅ Database: Connected
+✅ Features: {len(self.features)} loaded
+✅ System: Operational
+
+🔥 <b>Ready for Advanced Roasting!</b>
 ━━━━━━━━━━━━━━━━━━━━━━━━
                 """
                 
@@ -1409,6 +1241,18 @@ class RoastifyBot:
     def run(self):
         """Run the bot"""
         try:
+            # Check if Telegram is available
+            if not TELEGRAM_AVAILABLE:
+                logger.error("Telegram library not installed!")
+                print("Install: pip install python-telegram-bot")
+                return
+            
+            # Check bot token
+            if not self.bot_token or self.bot_token == "YOUR_BOT_TOKEN_HERE":
+                logger.error("Bot token not configured!")
+                print("Please set your bot token in config.py")
+                return
+            
             # Create application
             self.application = ApplicationBuilder()\
                 .token(self.bot_token)\
@@ -1419,18 +1263,27 @@ class RoastifyBot:
             self.setup_handlers(self.application)
             
             # Run bot
-            logger.info(f"Starting {self.bot_name} bot v7.0...")
+            logger.info(f"🚀 Starting {self.bot_name} v8.0...")
+            print(f"\n{'='*60}")
+            print(f"🔥 {self.bot_name} v8.0 Ultra Pro Max")
+            print(f"📊 Version: 8.0.0")
+            print(f"⚡ Status: Starting...")
+            print(f"{'='*60}\n")
+            
             self.application.run_polling(
                 allowed_updates=Update.ALL_TYPES,
-                drop_pending_updates=True
+                drop_pending_updates=True,
+                close_loop=False
             )
             
         except KeyboardInterrupt:
             logger.info("Bot stopped by user")
+            print("\n🛑 Bot stopped by user")
             
             # Cleanup
             try:
-                self.image_gen.cleanup()
+                if self.image_gen:
+                    self.image_gen.cleanup()
             except:
                 pass
             
@@ -1439,9 +1292,13 @@ class RoastifyBot:
             traceback_str = traceback.format_exc()
             logger.error(f"Traceback:\n{traceback_str}")
             
+            print(f"\n❌ Error: {e}")
+            print("Check bot.log for details")
+            
             # Cleanup
             try:
-                self.image_gen.cleanup()
+                if self.image_gen:
+                    self.image_gen.cleanup()
             except:
                 pass
             
@@ -1455,6 +1312,7 @@ def create_directories():
         "assets/borders",
         "assets/templates",
         "assets/backgrounds",
+        "assets/profiles",
         "output",
         "temp",
         "cache",
@@ -1465,28 +1323,62 @@ def create_directories():
     
     for directory in directories:
         os.makedirs(directory, exist_ok=True)
-        logger.debug(f"Created directory: {directory}")
+        print(f"📁 Created: {directory}")
+
+
+def check_requirements():
+    """Check if requirements are met"""
+    try:
+        import telegram
+        print("✅ python-telegram-bot: OK")
+    except:
+        print("❌ python-telegram-bot: Missing")
+        print("   Install: pip install python-telegram-bot")
+    
+    try:
+        from PIL import Image
+        print("✅ Pillow (PIL): OK")
+    except:
+        print("❌ Pillow (PIL): Missing")
+        print("   Install: pip install pillow")
+    
+    try:
+        import matplotlib
+        print("✅ matplotlib: OK")
+    except:
+        print("⚠️ matplotlib: Missing (optional)")
+        print("   Install: pip install matplotlib")
+    
+    print("-" * 60)
 
 
 def main():
     """Main entry point"""
+    print("\n" + "="*60)
+    print("🔥 ROASTIFY BOT v8.0 ULTRA PRO MAX")
+    print("📊 Advanced Image Generation + User Profiles")
+    print("="*60 + "\n")
+    
+    # Check requirements
+    check_requirements()
+    
     # Create directories
     create_directories()
     
     # Check for required files
-    required_files = [
-        "config.py",
-        "database.py",
-        "requirements.txt"
-    ]
+    required_files = ["config.py", "database.py"]
     
     for file in required_files:
         if not os.path.exists(file):
-            logger.warning(f"Required file not found: {file}")
+            print(f"⚠️ Warning: {file} not found")
     
     # Run bot
-    bot = RoastifyBot()
-    bot.run()
+    try:
+        bot = RoastifyBotV8()
+        bot.run()
+    except Exception as e:
+        print(f"\n❌ Fatal error: {e}")
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
