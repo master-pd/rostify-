@@ -9,6 +9,9 @@ from .border_manager import BorderManager
 from .font_manager import FontManager
 from .helpers import Helpers
 
+"""
+
+__version__ = "15.0.0"
 __all__ = [
     'TextProcessor',
     'ImageGenerator', 
