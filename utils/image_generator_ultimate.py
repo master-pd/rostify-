@@ -1,8 +1,10 @@
+#!/usr/bin/env python3
 """
 🔥 ULTRA PREMIUM IMAGE GENERATOR v12.0 - RANA EDITION
 🎨 8K Ready | AI-Powered | Complete Professional Suite
 ✨ Features: HD Backgrounds | Dynamic Profiles | Premium Effects
 🚀 Performance Optimized for Mass Production
+⚡ Author: Roastify Team | Special Edition for রানা
 """
 
 import os
@@ -81,26 +83,26 @@ PREMIUM_PALETTES = {
     },
     'BENGALI_FIESTA': {
         'name': 'Bengali Fiesta',
-        'primary': (220, 20, 60),    Crimson
-        'secondary': (255, 140, 0),  Dark Orange
-        'accent': (255, 215, 0),     Gold
+        'primary': (220, 20, 60),    # Crimson
+        'secondary': (255, 140, 0),  # Dark Orange
+        'accent': (255, 215, 0),     # Gold
         'text': (255, 250, 240),
         'background': (30, 30, 50),
-        'highlight': (50, 205, 50),  Lime Green
+        'highlight': (50, 205, 50),  # Lime Green
         'success': (0, 200, 0),
         'warning': (255, 165, 0),
         'error': (178, 34, 34)
     },
     'OCEAN_DEPTH': {
         'name': 'Ocean Depth',
-        'primary': (0, 105, 148),    Deep Sea Blue
-        'secondary': (0, 168, 204),  Ocean Blue
-        'accent': (0, 207, 255),     Bright Cyan
-        'text': (240, 248, 255),     Alice Blue
-        'background': (0, 30, 60),   Midnight Blue
-        'highlight': (64, 224, 208), Turquoise
-        'success': (0, 255, 150),    Spring Green
-        'warning': (255, 215, 0),    Gold
+        'primary': (0, 105, 148),    # Deep Sea Blue
+        'secondary': (0, 168, 204),  # Ocean Blue
+        'accent': (0, 207, 255),     # Bright Cyan
+        'text': (240, 248, 255),     # Alice Blue
+        'background': (0, 30, 60),   # Midnight Blue
+        'highlight': (64, 224, 208), # Turquoise
+        'success': (0, 255, 150),    # Spring Green
+        'warning': (255, 215, 0),    # Gold
         'error': (255, 50, 50)
     }
 }
@@ -311,6 +313,21 @@ class UserProfile:
         elif self.is_creator:
             return "🎨 Creator 🎨"
         return ""
+
+# ==================== GENERATION RESULT ====================
+@dataclass
+class GenerationResult:
+    """Image Generation Result"""
+    success: bool
+    image_path: Optional[str] = None
+    error: Optional[str] = None
+    processing_time: float = 0.0
+    cache_hit: bool = False
+    image_size: Optional[int] = None
+    metadata: Optional[Dict] = None
+    
+    def to_dict(self) -> Dict:
+        return asdict(self)
 
 # ==================== PREMIUM BACKGROUND GENERATOR ====================
 class PremiumBackgroundGenerator:
@@ -1411,6 +1428,55 @@ class PremiumProfileGenerator:
         draw.text(position, initial, font=font, fill=(255, 255, 255, 255))
         
         return profile
+    
+    def _create_diamond_cut(self, user_profile: UserProfile, size: int) -> Image.Image:
+        """Create diamond cut profile"""
+        profile = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(profile)
+        
+        center = size // 2
+        diamond_size = size // 2 - 20
+        
+        # Diamond shape
+        points = [
+            (center, center - diamond_size),  # Top
+            (center + diamond_size, center),  # Right
+            (center, center + diamond_size),  # Bottom
+            (center - diamond_size, center)   # Left
+        ]
+        
+        # Draw diamond with gradient
+        diamond_color = (0, 191, 255, 200)  # Deep Sky Blue
+        draw.polygon(points, fill=diamond_color)
+        
+        # Diamond facets
+        facet_points = [
+            (center, center - diamond_size // 2),
+            (center + diamond_size // 2, center),
+            (center, center + diamond_size // 2),
+            (center - diamond_size // 2, center)
+        ]
+        
+        facet_color = (135, 206, 250, 150)  # Light Sky Blue
+        draw.polygon(facet_points, fill=facet_color)
+        
+        # User initial
+        initial = user_profile.display_name[0].upper() if user_profile.display_name else 'U'
+        try:
+            font_size = size // 4
+            font = ImageFont.truetype("arial.ttf", font_size)
+        except:
+            font = ImageFont.load_default()
+        
+        bbox = draw.textbbox((0, 0), initial, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        position = ((size - text_width) // 2, (size - text_height) // 2)
+        
+        draw.text(position, initial, font=font, fill=(255, 255, 255, 255))
+        
+        return profile
 
 # ==================== ULTRA TEXT RENDERER ====================
 class UltraTextRenderer:
@@ -1669,7 +1735,7 @@ class UltraTextRenderer:
         return image
 
 # ==================== MAIN GENERATOR ====================
-class UltraPremiumGenerator:
+class UltimateImageGenerator:
     """Main Ultra Premium Image Generator"""
     
     def __init__(self, config: Optional[UltraConfig] = None):
@@ -1691,7 +1757,7 @@ class UltraPremiumGenerator:
             'total_time': 0.0
         }
         
-        logger.info("🚀 Ultra Premium Generator v12.0 Initialized")
+        logger.info("🚀 Ultimate Image Generator v12.0 Initialized")
         logger.info(f"   • Resolution: {self.config.custom_width}x{self.config.custom_height}")
         logger.info(f"   • Quality: {self.config.quality}%")
         logger.info(f"   • Features: HD Backgrounds: {self.config.enable_hd_backgrounds}")
@@ -1699,7 +1765,7 @@ class UltraPremiumGenerator:
     
     def generate_roast_image(self, roast_text: str, user_info: Dict,
                             mentioned_user: Optional[Dict] = None,
-                            style: UltraStyle = None) -> Dict:
+                            style: UltraStyle = None) -> GenerationResult:
         """Generate ultra premium roast image"""
         start_time = time.time()
         
@@ -1712,6 +1778,8 @@ class UltraPremiumGenerator:
             
             # Select style
             style = style or UltraStyle.get_random()
+            
+            logger.info(f"🔄 Generating {style.name} image for {main_user.display_name}")
             
             # Generate background
             background = self.background_gen.generate(
@@ -1750,14 +1818,19 @@ class UltraPremiumGenerator:
             logger.info(f"   • Style: {style.name}")
             logger.info(f"   • User: {main_user.display_name}")
             
-            return {
-                'success': True,
-                'image_path': str(output_path),
-                'processing_time': processing_time,
-                'style': style.name,
-                'user': main_user.display_name,
-                'resolution': f"{self.config.custom_width}x{self.config.custom_height}"
-            }
+            return GenerationResult(
+                success=True,
+                image_path=str(output_path),
+                processing_time=processing_time,
+                image_size=output_path.stat().st_size,
+                metadata={
+                    'user': main_user.display_name,
+                    'user_id': main_user.id,
+                    'style': style.name,
+                    'resolution': f"{self.config.custom_width}x{self.config.custom_height}",
+                    'timestamp': datetime.now().isoformat()
+                }
+            )
             
         except Exception as e:
             processing_time = time.time() - start_time
@@ -1766,12 +1839,13 @@ class UltraPremiumGenerator:
             self.stats['total_time'] += processing_time
             
             logger.error(f"❌ Image generation failed: {e}")
+            logger.error(traceback.format_exc())
             
-            return {
-                'success': False,
-                'error': str(e),
-                'processing_time': processing_time
-            }
+            return GenerationResult(
+                success=False,
+                error=str(e),
+                processing_time=processing_time
+            )
     
     def _create_user_profile(self, user_info: Dict) -> UserProfile:
         """Create UserProfile from dict"""
@@ -1894,6 +1968,31 @@ class UltraPremiumGenerator:
         
         return output_path
     
+    def generate_welcome_image(self, user_info: Dict) -> GenerationResult:
+        """Generate welcome image"""
+        welcome_texts = [
+            "✨ স্বাগতম! আল্ট্রা প্রিমিয়াম কমিউনিটিতে আপনাকে হৃদয়ের অভিনন্দন! 🎉",
+            "🚀 নতুন হিরোর আগমন! প্রস্তুত থাকুন অসাধারণ অভিজ্ঞতার জন্য! ⚡",
+            "🎯 আপনাকে পেয়ে আমরা সমৃদ্ধ হলাম! আল্ট্রা জার্নি শুরু হোক! 🌟",
+            "🔥 ওহো! একজন সত্যিকারের চ্যাম্পিয়ন এসেছেন! সবাই প্রস্তুত থাকুন! 💫"
+        ]
+        
+        return self.generate_roast_image(
+            roast_text=random.choice(welcome_texts),
+            user_info=user_info,
+            style=UltraStyle.GOLDEN_LUXURY
+        )
+    
+    def generate_achievement_image(self, user_info: Dict, achievement: str) -> GenerationResult:
+        """Generate achievement image"""
+        achievement_text = f"🏆 অর্জন সম্পন্ন! 🏆\n\n{achievement}"
+        
+        return self.generate_roast_image(
+            roast_text=achievement_text,
+            user_info=user_info,
+            style=UltraStyle.GOLDEN_LUXURY
+        )
+    
     def get_stats(self) -> Dict:
         """Get generator statistics"""
         avg_time = 0
@@ -1914,19 +2013,27 @@ class UltraPremiumGenerator:
             'resolution': f"{self.config.custom_width}x{self.config.custom_height}"
         }
     
-    def cleanup(self):
+    def cleanup(self, keep_last: int = 100):
         """Cleanup old files"""
         try:
             output_dir = Path(self.config.output_dir)
             if output_dir.exists():
-                # Keep only last 100 images
+                # Get all images sorted by modification time
                 images = list(output_dir.glob("*.png"))
                 images.sort(key=lambda x: x.stat().st_mtime, reverse=True)
                 
-                for old_image in images[100:]:
-                    old_image.unlink()
+                # Delete old images
+                deleted = 0
+                for old_image in images[keep_last:]:
+                    try:
+                        old_image.unlink()
+                        deleted += 1
+                    except:
+                        pass
                 
-                logger.info(f"Cleanup: Kept {min(len(images), 100)} images")
+                if deleted > 0:
+                    logger.info(f"Cleanup: Deleted {deleted} old images, kept {min(len(images), keep_last)}")
+                    
         except Exception as e:
             logger.warning(f"Cleanup failed: {e}")
 
@@ -1952,7 +2059,7 @@ def example_usage():
         )
         
         # Initialize generator
-        generator = UltraPremiumGenerator(config)
+        generator = UltimateImageGenerator(config)
         
         # Create test users
         test_user = {
@@ -1987,13 +2094,13 @@ def example_usage():
             style=UltraStyle.GOLDEN_LUXURY
         )
         
-        if result['success']:
+        if result.success:
             print(f"\n✅ Image Generated Successfully!")
-            print(f"   📁 Path: {result['image_path']}")
-            print(f"   ⏱️ Time: {result['processing_time']:.2f}s")
-            print(f"   🎨 Style: {result['style']}")
-            print(f"   👤 User: {result['user']}")
-            print(f"   📏 Resolution: {result['resolution']}")
+            print(f"   📁 Path: {result.image_path}")
+            print(f"   ⏱️ Time: {result.processing_time:.2f}s")
+            print(f"   📏 Size: {result.image_size:,} bytes")
+            print(f"   👤 User: {result.metadata['user']}")
+            print(f"   🎨 Style: {result.metadata['style']}")
             
             # Show statistics
             stats = generator.get_stats()
@@ -2002,7 +2109,7 @@ def example_usage():
             print(f"   • Success Rate: {stats['success_rate']}")
             print(f"   • Average Time: {stats['average_time']}")
         else:
-            print(f"\n❌ Generation Failed: {result['error']}")
+            print(f"\n❌ Generation Failed: {result.error}")
         
         print("\n" + "="*60)
         print("🎉 Example Completed!")
@@ -2014,3 +2121,16 @@ def example_usage():
 
 if __name__ == "__main__":
     example_usage()
+
+# ==================== EXPORTS ====================
+__all__ = [
+    'UltimateImageGenerator',
+    'GenerationResult',
+    'UltraConfig',
+    'UserProfile',
+    'UltraStyle',
+    'ProfileDesign',
+    'UltraTextRenderer',
+    'PremiumBackgroundGenerator',
+    'PremiumProfileGenerator'
+]
