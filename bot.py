@@ -1,1813 +1,1952 @@
-class AdvancedAIAnalytics:
-    """Advanced AI Analytics Engine"""
+#!/usr/bin/env python3
+"""
+Roastify Bot v15.0 - ULTIMATE PREMIUM EDITION
+Image + Text + Diagram + User Information Cards with AI Analytics
+"""
+
+import os
+import sys
+import logging
+import random
+import re
+import asyncio
+import traceback
+import math
+import json
+from datetime import datetime, timedelta
+from typing import Dict, Any, Optional, List, Tuple, Union
+from pathlib import Path
+import concurrent.futures
+import hashlib
+import time
+import uuid
+
+# Import AI Libraries
+try:
+    import numpy as np
+    import spacy
+    from textblob import TextBlob
+    from nltk.sentiment import SentimentIntensityAnalyzer
+    from nltk.tokenize import sent_tokenize, word_tokenize
+    from nltk.corpus import stopwords
+    import nltk
+    
+    # Setup NLTK
+    nltk.download('punkt', quiet=True)
+    nltk.download('stopwords', quiet=True)
+    nltk.download('vader_lexicon', quiet=True)
+    
+    HAS_AI = True
+except ImportError:
+    HAS_AI = False
+    logger.warning("AI libraries not installed. Some features disabled.")
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('bot_premium.log', encoding='utf-8'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Import project modules
+try:
+    from config import BOT_TOKEN, BOT_IDENTITY, CORE_RULES, OWNER_ADMIN_PROTECTION
+    from database import get_database
+    from features.master_loader import load_all_features
+    from features.welcome_system import WelcomeSystem
+    from features.roast_engine import RoastEngine
+    from features.voting_system import VotingSystem
+    from features.reaction_system import ReactionSystem
+    from features.mention_roast import MentionRoast
+    from features.admin_protection import AdminProtection
+    from features.leaderboard import Leaderboard
+    from features.festival_mode import FestivalMode
+    from features.auto_daily_quote import AutoDailyQuote
+    from features.custom_template_unlocks import CustomTemplateUnlocks
+    from features.auto_mood_recognition import AutoMoodRecognition
+    from features.safe_forward_share import SafeForwardShare
+    from utils.template_manager import TemplateManager
+    
+    # Import UltimateImageGenerator v6.0
+    from utils.image_generator_ultimate import (
+        UltimateImageGenerator, 
+        GenerationResult,
+        ImageConfig,
+        TextConfig,
+        BorderConfig,
+        BackgroundConfig,
+        BorderType,
+        TextEffect,
+        GradientDirection
+    )
+    
+    # Import PIL
+    from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
+    HAS_PIL = True
+    
+except ImportError as e:
+    logger.error(f"Import error: {e}")
+    logger.error(traceback.format_exc())
+    logger.error("Please check all required files exist")
+    sys.exit(1)
+
+# Import Telegram
+try:
+    from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+    from telegram.ext import (
+        Application, CommandHandler, MessageHandler, filters,
+        ContextTypes, CallbackQueryHandler, ApplicationBuilder
+    )
+    from telegram.constants import ParseMode
+except ImportError:
+    logger.error("Install: pip install python-telegram-bot")
+    sys.exit(1)
+
+
+# Import Premium Modules
+try:
+    from premium.user_information_card import UserInformationCard
+    from premium.ai_analytics import AdvancedAIAnalytics
+    from premium.enterprise_dashboard import EnterpriseDashboard
+    from premium.blockchain_integrator import BlockchainIntegrator
+    from premium.advanced_image_processor import AdvancedImageProcessor
+    from premium.enterprise_security import EnterpriseSecurity
+    from premium.report_generator import AdvancedReportGenerator
+    HAS_PREMIUM = True
+except ImportError:
+    HAS_PREMIUM = False
+    logger.warning("Premium modules not found. Creating premium directory...")
+    os.makedirs("premium", exist_ok=True)
+
+
+class PremiumThemeManager:
+    """Manage premium themes and styles"""
     
     def __init__(self):
-        self.nlp = spacy.load("en_core_web_lg")
-        self.sentiment_analyzer = SentimentIntensityAnalyzer()
-        self.translator = Translator()
-        self.bert_pipeline = pipeline("text-classification", model="bert-base-uncased")
-        self.gpt_pipeline = pipeline("text-generation", model="gpt2")
-        
-        # Load ML models
-        self.tfidf_vectorizer = TfidfVectorizer(max_features=5000)
-        self.kmeans_model = KMeans(n_clusters=5)
-        
-        # Setup NLTK
-        nltk.download('punkt', quiet=True)
-        nltk.download('stopwords', quiet=True)
-        nltk.download('vader_lexicon', quiet=True)
-        
-        logger.info("Advanced AI Analytics initialized")
-    
-    async def analyze_text_depth(self, text: str) -> Dict:
-        """Deep text analysis with multiple metrics"""
-        analysis = {
-            "basic_metrics": {},
-            "sentiment_analysis": {},
-            "readability_scores": {},
-            "topic_modeling": {},
-            "emotional_tone": {},
-            "linguistic_features": {},
-            "ai_insights": {}
+        self.themes = {
+            "diamond": {
+                "name": "💎 Diamond Premium",
+                "colors": ["#FFD700", "#FFFFFF", "#B9F2FF", "#FF6B6B"],
+                "bg_gradient": ["#0F2027", "#203A43", "#2C5364"],
+                "font": "Arial Black",
+                "effects": ["glow", "shadow", "gradient"]
+            },
+            "neon": {
+                "name": "🌌 Neon Cyberpunk",
+                "colors": ["#00FFFF", "#FF00FF", "#00FF00", "#FFFF00"],
+                "bg_gradient": ["#000428", "#004e92", "#000428"],
+                "font": "Courier New",
+                "effects": ["neon", "blur", "scanlines"]
+            },
+            "gold": {
+                "name": "🏆 Gold Elite",
+                "colors": ["#FFD700", "#FFA500", "#FF8C00", "#DAA520"],
+                "bg_gradient": ["#1A1A1A", "#333333", "#1A1A1A"],
+                "font": "Times New Roman",
+                "effects": ["metallic", "shine", "emboss"]
+            },
+            "silver": {
+                "name": "⚡ Silver Pro",
+                "colors": ["#C0C0C0", "#E8E8E8", "#A0A0A0", "#D3D3D3"],
+                "bg_gradient": ["#2B2B2B", "#4A4A4A", "#2B2B2B"],
+                "font": "Verdana",
+                "effects": ["chrome", "reflection", "glossy"]
+            },
+            "platinum": {
+                "name": "🔮 Platinum VIP",
+                "colors": ["#E5E4E2", "#C0C0C0", "#A0A0A0", "#808080"],
+                "bg_gradient": ["#16222A", "#3A6073", "#16222A"],
+                "font": "Georgia",
+                "effects": ["platinum", "crystal", "transparent"]
+            }
         }
         
-        # Basic metrics
-        analysis["basic_metrics"] = self._calculate_basic_metrics(text)
+        self.current_theme = "diamond"
+        logger.info("PremiumThemeManager initialized")
+    
+    def get_theme(self, theme_name: str = None) -> Dict:
+        """Get theme configuration"""
+        theme = theme_name or self.current_theme
+        return self.themes.get(theme, self.themes["diamond"])
+    
+    def get_random_theme(self) -> Dict:
+        """Get random theme"""
+        return random.choice(list(self.themes.values()))
+    
+    def get_themed_colors(self, theme_name: str = None) -> List[str]:
+        """Get colors for theme"""
+        theme = self.get_theme(theme_name)
+        return theme["colors"]
+    
+    def create_gradient_background(self, theme_name: str = None, 
+                                  width: int = 1200, height: int = 800) -> Image.Image:
+        """Create gradient background for theme"""
+        theme = self.get_theme(theme_name)
+        colors = theme["bg_gradient"]
         
-        # Sentiment analysis
-        analysis["sentiment_analysis"] = self._analyze_sentiment(text)
+        # Create gradient
+        background = Image.new('RGB', (width, height), color=colors[0])
+        draw = ImageDraw.Draw(background)
         
-        # Readability scores
-        analysis["readability_scores"] = self._calculate_readability(text)
+        # Simple gradient implementation
+        for i in range(height):
+            ratio = i / height
+            r = int(sum(int(c[j:j+2], 16) for c in colors) / len(colors) * ratio)
+            g = int(sum(int(c[j:j+2], 16) for c in colors) / len(colors) * ratio)
+            b = int(sum(int(c[j:j+2], 16) for c in colors) / len(colors) * ratio)
+            
+            color = (r, g, b)
+            draw.line([(0, i), (width, i)], fill=color)
         
-        # Topic modeling
-        analysis["topic_modeling"] = await self._extract_topics(text)
+        return background
+
+
+class PremiumBadgeSystem:
+    """Premium badge and achievement system"""
+    
+    def __init__(self):
+        self.badges = {
+            "veteran": {"name": "🎖️ Veteran", "desc": "100+ roasts", "color": "#FFD700"},
+            "elite": {"name": "👑 Elite", "desc": "Top 10 ranking", "color": "#C0C0C0"},
+            "creative": {"name": "🎨 Creative", "desc": "50+ custom roasts", "color": "#FF6B6B"},
+            "social": {"name": "🤝 Social", "desc": "500+ votes received", "color": "#00C851"},
+            "fast": {"name": "⚡ Speedster", "desc": "Fastest response", "color": "#33B5E5"},
+            "funny": {"name": "😂 Comedian", "desc": "Most funny roasts", "color": "#FF8800"},
+            "clever": {"name": "🧠 Genius", "desc": "Most clever roasts", "color": "#AA66CC"},
+            "helpful": {"name": "🌟 Helper", "desc": "Helped other users", "color": "#FFBB33"},
+            "legend": {"name": "🏆 Legend", "desc": "All badges unlocked", "color": "#FF4444"},
+            "premium": {"name": "💎 Premium", "desc": "Premium member", "color": "#00D2FF"}
+        }
         
-        # Emotional tone
-        analysis["emotional_tone"] = self._detect_emotional_tone(text)
+        logger.info("PremiumBadgeSystem initialized")
+    
+    def get_user_badges(self, user_id: int, user_stats: Dict) -> List[Dict]:
+        """Get badges user has earned"""
+        earned_badges = []
         
-        # Linguistic features
-        analysis["linguistic_features"] = self._extract_linguistic_features(text)
+        # Check each badge condition
+        if user_stats.get("total_roasts", 0) >= 100:
+            earned_badges.append(self.badges["veteran"])
         
-        # AI insights
-        analysis["ai_insights"] = await self._generate_ai_insights(text)
+        if user_stats.get("rank", 999) <= 10:
+            earned_badges.append(self.badges["elite"])
+        
+        if user_stats.get("custom_roasts", 0) >= 50:
+            earned_badges.append(self.badges["creative"])
+        
+        if user_stats.get("total_votes", 0) >= 500:
+            earned_badges.append(self.badges["social"])
+        
+        # Premium badge for all premium users
+        earned_badges.append(self.badges["premium"])
+        
+        # Legend badge if earned many badges
+        if len(earned_badges) >= 5:
+            earned_badges.append(self.badges["legend"])
+        
+        return earned_badges
+    
+    def create_badge_image(self, badge: Dict) -> Optional[str]:
+        """Create badge image"""
+        if not HAS_PIL:
+            return None
+        
+        try:
+            size = 100
+            img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(img)
+            
+            # Parse color
+            color = badge["color"]
+            if color.startswith('#'):
+                color = tuple(int(color[i:i+2], 16) for i in (1, 3, 5))
+            
+            # Draw badge circle
+            draw.ellipse([5, 5, size-5, size-5], fill=color, outline=(255, 255, 255), width=3)
+            
+            # Add text (first character)
+            text = badge["name"][0]
+            try:
+                font = ImageFont.truetype("assets/fonts/arial.ttf", 40)
+            except:
+                font = ImageFont.load_default()
+            
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            
+            draw.text(
+                ((size - text_width) // 2, (size - text_height) // 2 - 10),
+                text, font=font, fill=(255, 255, 255)
+            )
+            
+            # Save
+            os.makedirs("temp/badges", exist_ok=True)
+            filename = f"temp/badges/badge_{hashlib.md5(badge['name'].encode()).hexdigest()[:8]}.png"
+            img.save(filename, 'PNG')
+            
+            return filename
+            
+        except Exception as e:
+            logger.error(f"Error creating badge image: {e}")
+            return None
+
+
+class PremiumUserAnalytics:
+    """Premium user analytics and insights"""
+    
+    def __init__(self):
+        self.sentiment_analyzer = SentimentIntensityAnalyzer() if HAS_AI else None
+        logger.info("PremiumUserAnalytics initialized")
+    
+    async def analyze_user_behavior(self, user_id: int, user_data: Dict) -> Dict:
+        """Analyze user behavior patterns"""
+        analysis = {
+            "activity_level": "unknown",
+            "roast_style": "balanced",
+            "peak_hours": [],
+            "engagement_score": 0,
+            "improvement_areas": [],
+            "strengths": []
+        }
+        
+        try:
+            # Calculate activity level
+            total_roasts = user_data.get("total_roasts", 0)
+            days_active = user_data.get("days_active", 1)
+            daily_avg = total_roasts / days_active
+            
+            if daily_avg >= 10:
+                analysis["activity_level"] = "hyper_active"
+            elif daily_avg >= 5:
+                analysis["activity_level"] = "very_active"
+            elif daily_avg >= 2:
+                analysis["activity_level"] = "active"
+            elif daily_avg >= 1:
+                analysis["activity_level"] = "moderate"
+            else:
+                analysis["activity_level"] = "casual"
+            
+            # Analyze roast style from recent roasts
+            recent_roasts = user_data.get("recent_roasts", [])
+            if recent_roasts and HAS_AI:
+                sentiments = []
+                for roast in recent_roasts[:10]:  # Last 10 roasts
+                    try:
+                        sentiment = self.sentiment_analyzer.polarity_scores(roast)
+                        sentiments.append(sentiment["compound"])
+                    except:
+                        pass
+                
+                if sentiments:
+                    avg_sentiment = sum(sentiments) / len(sentiments)
+                    if avg_sentiment > 0.3:
+                        analysis["roast_style"] = "positive_funny"
+                    elif avg_sentiment < -0.3:
+                        analysis["roast_style"] = "savage_harsh"
+                    else:
+                        analysis["roast_style"] = "neutral_clever"
+            
+            # Calculate engagement score (0-100)
+            vote_ratio = user_data.get("upvotes", 0) / max(user_data.get("total_votes", 1), 1)
+            activity_score = min(daily_avg * 10, 50)  # Max 50 points
+            vote_score = vote_ratio * 30  # Max 30 points
+            consistency_score = min(days_active * 2, 20)  # Max 20 points
+            
+            analysis["engagement_score"] = int(activity_score + vote_score + consistency_score)
+            
+            # Determine strengths and improvement areas
+            if vote_ratio > 0.7:
+                analysis["strengths"].append("popular_roasts")
+            if daily_avg > 3:
+                analysis["strengths"].append("high_activity")
+            if user_data.get("unique_roasts", 0) > 20:
+                analysis["strengths"].append("creativity")
+            
+            if vote_ratio < 0.3:
+                analysis["improvement_areas"].append("roast_quality")
+            if daily_avg < 1:
+                analysis["improvement_areas"].append("activity")
+            if len(recent_roasts) < 5:
+                analysis["improvement_areas"].append("consistency")
+            
+        except Exception as e:
+            logger.error(f"Error in user behavior analysis: {e}")
         
         return analysis
-    
-    def _calculate_basic_metrics(self, text: str) -> Dict:
-        """Calculate basic text metrics"""
-        sentences = sent_tokenize(text)
-        words = word_tokenize(text)
-        stop_words = set(stopwords.words('english'))
-        
-        return {
-            "char_count": len(text),
-            "word_count": len(words),
-            "sentence_count": len(sentences),
-            "avg_sentence_length": len(words) / len(sentences) if sentences else 0,
-            "unique_words": len(set(words)),
-            "stopword_count": len([w for w in words if w.lower() in stop_words]),
-            "avg_word_length": sum(len(w) for w in words) / len(words) if words else 0
-        }
-    
-    def _analyze_sentiment(self, text: str) -> Dict:
-        """Analyze sentiment with multiple methods"""
-        # VADER sentiment
-        vader_scores = self.sentiment_analyzer.polarity_scores(text)
-        
-        # TextBlob sentiment
-        blob = TextBlob(text)
-        polarity = blob.sentiment.polarity
-        subjectivity = blob.sentiment.subjectivity
-        
-        # BERT sentiment
-        try:
-            bert_result = self.bert_pipeline(text[:512])[0]
-            bert_label = bert_result['label']
-            bert_score = bert_result['score']
-        except:
-            bert_label = "NEUTRAL"
-            bert_score = 0.5
-        
-        return {
-            "vader": vader_scores,
-            "textblob": {"polarity": polarity, "subjectivity": subjectivity},
-            "bert": {"label": bert_label, "confidence": bert_score},
-            "overall_sentiment": self._determine_overall_sentiment(vader_scores, polarity, bert_label)
-        }
-    
-    def _calculate_readability(self, text: str) -> Dict:
-        """Calculate readability scores"""
-        words = word_tokenize(text)
-        sentences = sent_tokenize(text)
-        
-        if len(words) == 0 or len(sentences) == 0:
-            return {}
-        
-        # Flesch Reading Ease
-        total_words = len(words)
-        total_sentences = len(sentences)
-        total_syllables = sum(self._count_syllables(word) for word in words)
-        
-        flesch = 206.835 - 1.015 * (total_words / total_sentences) - 84.6 * (total_syllables / total_words)
-        
-        # Flesch-Kincaid Grade Level
-        fk_grade = 0.39 * (total_words / total_sentences) + 11.8 * (total_syllables / total_words) - 15.59
-        
-        # Gunning Fog Index
-        complex_words = sum(1 for word in words if self._count_syllables(word) >= 3)
-        fog_index = 0.4 * ((total_words / total_sentences) + 100 * (complex_words / total_words))
-        
-        # Coleman-Liau Index
-        letters = sum(len(word) for word in words)
-        coleman_liau = 0.0588 * (letters / total_words * 100) - 0.296 * (total_sentences / total_words * 100) - 15.8
-        
-        return {
-            "flesch_reading_ease": flesch,
-            "flesch_kincaid_grade": fk_grade,
-            "gunning_fog": fog_index,
-            "coleman_liau": coleman_liau,
-            "reading_level": self._determine_reading_level(flesch)
-        }
-    
-    async def _extract_topics(self, text: str) -> Dict:
-        """Extract topics using LDA and BERT"""
-        # Simple keyword extraction
-        doc = self.nlp(text)
-        
-        # Extract nouns and proper nouns
-        nouns = [token.text for token in doc if token.pos_ in ["NOUN", "PROPN"]]
-        
-        # Extract named entities
-        entities = [(ent.text, ent.label_) for ent in doc.ents]
-        
-        # TF-IDF based topics
-        tfidf_matrix = self.tfidf_vectorizer.fit_transform([text])
-        feature_names = self.tfidf_vectorizer.get_feature_names_out()
-        
-        # Get top keywords
-        dense = tfidf_matrix.todense()
-        top_indices = np.argsort(dense[0])[::-1][:10]
-        keywords = [feature_names[idx] for idx in top_indices]
-        
-        return {
-            "nouns": list(set(nouns))[:10],
-            "entities": entities[:10],
-            "keywords": keywords,
-            "topic_clusters": self._cluster_keywords(keywords)
-        }
-    
-    def _detect_emotional_tone(self, text: str) -> Dict:
-        """Detect emotional tone using lexicon-based approach"""
-        emotions = {
-            "joy": 0, "anger": 0, "sadness": 0, "fear": 0,
-            "surprise": 0, "disgust": 0, "trust": 0, "anticipation": 0
-        }
-        
-        # Load emotion lexicons (simplified version)
-        emotion_lexicons = self._load_emotion_lexicons()
-        
-        words = word_tokenize(text.lower())
-        
-        for word in words:
-            for emotion, word_list in emotion_lexicons.items():
-                if word in word_list:
-                    emotions[emotion] += 1
-        
-        # Normalize scores
-        total = sum(emotions.values())
-        if total > 0:
-            emotions = {k: v/total for k, v in emotions.items()}
-        
-        # Determine dominant emotion
-        dominant = max(emotions.items(), key=lambda x: x[1])
-        
-        return {
-            "emotion_scores": emotions,
-            "dominant_emotion": dominant[0],
-            "dominance_score": dominant[1],
-            "emotional_complexity": self._calculate_emotional_complexity(emotions)
-        }
-    
-    def _extract_linguistic_features(self, text: str) -> Dict:
-        """Extract advanced linguistic features"""
-        doc = self.nlp(text)
-        
-        # POS distribution
-        pos_counts = {}
-        for token in doc:
-            pos_counts[token.pos_] = pos_counts.get(token.pos_, 0) + 1
-        
-        # Dependency parsing complexity
-        dep_depth = self._calculate_dependency_depth(doc)
-        
-        # Named Entity Recognition
-        ner_types = {}
-        for ent in doc.ents:
-            ner_types[ent.label_] = ner_types.get(ent.label_, 0) + 1
-        
-        # Text coherence metrics
-        coherence = self._calculate_text_coherence(text)
-        
-        return {
-            "pos_distribution": pos_counts,
-            "dependency_depth": dep_depth,
-            "ner_types": ner_types,
-            "coherence_score": coherence,
-            "syntactic_complexity": self._calculate_syntactic_complexity(doc)
-        }
-    
-    async def _generate_ai_insights(self, text: str) -> Dict:
-        """Generate AI-powered insights using GPT"""
-        insights = {}
-        
-        try:
-            # Generate summary
-            summary_prompt = f"Summarize this text in one sentence: {text[:500]}"
-            summary = self.gpt_pipeline(summary_prompt, max_length=100, num_return_sequences=1)[0]['generated_text']
-            
-            # Generate key takeaways
-            takeaways_prompt = f"List 3 key takeaways from: {text[:500]}"
-            takeaways = self.gpt_pipeline(takeaways_prompt, max_length=150, num_return_sequences=1)[0]['generated_text']
-            
-            # Generate improvement suggestions
-            improve_prompt = f"How can this text be improved? {text[:500]}"
-            improvements = self.gpt_pipeline(improve_prompt, max_length=200, num_return_sequences=1)[0]['generated_text']
-            
-            insights = {
-                "ai_summary": summary,
-                "key_takeaways": takeaways,
-                "improvement_suggestions": improvements,
-                "ai_confidence": 0.85
-            }
-        except Exception as e:
-            logger.error(f"AI insights generation failed: {e}")
-            insights = {"ai_summary": "Analysis unavailable", "ai_confidence": 0.0}
-        
-        return insights
-    
-    # Helper methods
-    def _count_syllables(self, word: str) -> int:
-        """Count syllables in a word (approximate)"""
-        vowels = "aeiouy"
-        count = 0
-        word = word.lower().strip()
-        
-        if len(word) == 0:
-            return 0
-        
-        if word[0] in vowels:
-            count += 1
-        
-        for i in range(1, len(word)):
-            if word[i] in vowels and word[i-1] not in vowels:
-                count += 1
-        
-        if word.endswith("e"):
-            count -= 1
-        
-        if word.endswith("le") and len(word) > 2 and word[-3] not in vowels:
-            count += 1
-        
-        if count == 0:
-            count = 1
-        
-        return count
-    
-    def _determine_reading_level(self, flesch_score: float) -> str:
-        """Determine reading level from Flesch score"""
-        if flesch_score >= 90:
-            return "5th Grade (Very Easy)"
-        elif flesch_score >= 80:
-            return "6th Grade (Easy)"
-        elif flesch_score >= 70:
-            return "7th Grade (Fairly Easy)"
-        elif flesch_score >= 60:
-            return "8th-9th Grade (Plain English)"
-        elif flesch_score >= 50:
-            return "10th-12th Grade (Fairly Difficult)"
-        elif flesch_score >= 30:
-            return "College (Difficult)"
-        else:
-            return "College Graduate (Very Difficult)"
-    
-    def _determine_overall_sentiment(self, vader_scores: Dict, polarity: float, bert_label: str) -> Dict:
-        """Determine overall sentiment from multiple analyses"""
-        # Weighted average of different methods
-        vader_compound = vader_scores['compound']
-        textblob_score = polarity
-        
-        # Convert BERT label to numeric
-        bert_score = 0
-        if "POSITIVE" in bert_label.upper():
-            bert_score = 0.7
-        elif "NEGATIVE" in bert_label.upper():
-            bert_score = -0.7
-        else:
-            bert_score = 0
-        
-        # Calculate weighted score
-        weighted_score = (vader_compound * 0.4) + (textblob_score * 0.3) + (bert_score * 0.3)
-        
-        # Determine sentiment label
-        if weighted_score >= 0.3:
-            sentiment = "POSITIVE"
-        elif weighted_score <= -0.3:
-            sentiment = "NEGATIVE"
-        else:
-            sentiment = "NEUTRAL"
-        
-        return {
-            "score": weighted_score,
-            "label": sentiment,
-            "confidence": abs(weighted_score),
-            "method_breakdown": {
-                "vader": vader_compound,
-                "textblob": textblob_score,
-                "bert": bert_score
-            }
-        }
-    
-    def _load_emotion_lexicons(self) -> Dict:
-        """Load emotion lexicons (simplified)"""
-        # In production, load from actual lexicons
-        return {
-            "joy": ["happy", "joy", "excited", "wonderful", "amazing"],
-            "anger": ["angry", "mad", "furious", "rage", "hate"],
-            "sadness": ["sad", "depressed", "unhappy", "miserable", "cry"],
-            "fear": ["afraid", "scared", "fear", "terrified", "panic"],
-            "surprise": ["surprised", "shocked", "amazed", "astonished", "wow"],
-            "disgust": ["disgust", "disgusting", "revolting", "gross", "yuck"],
-            "trust": ["trust", "confidence", "faith", "reliable", "honest"],
-            "anticipation": ["anticipate", "expect", "await", "hope", "look forward"]
-        }
-    
-    def _calculate_emotional_complexity(self, emotions: Dict) -> float:
-        """Calculate emotional complexity (entropy)"""
-        import math
-        values = list(emotions.values())
-        total = sum(values)
-        
-        if total == 0:
-            return 0
-        
-        # Normalize
-        probs = [v/total for v in values]
-        
-        # Calculate entropy
-        entropy = -sum(p * math.log(p + 1e-10) for p in probs)
-        
-        # Normalize to 0-1 scale
-        max_entropy = math.log(len(emotions))
-        normalized_entropy = entropy / max_entropy if max_entropy > 0 else 0
-        
-        return normalized_entropy
-    
-    def _calculate_dependency_depth(self, doc) -> float:
-        """Calculate dependency tree depth"""
-        depths = []
-        for token in doc:
-            depth = 0
-            current = token
-            while current.head != current:
-                depth += 1
-                current = current.head
-            depths.append(depth)
-        
-        return np.mean(depths) if depths else 0
-    
-    def _calculate_text_coherence(self, text: str) -> float:
-        """Calculate text coherence score"""
-        sentences = sent_tokenize(text)
-        
-        if len(sentences) < 2:
-            return 1.0
-        
-        # Simple word overlap between consecutive sentences
-        overlaps = []
-        for i in range(len(sentences) - 1):
-            words1 = set(word_tokenize(sentences[i].lower()))
-            words2 = set(word_tokenize(sentences[i+1].lower()))
-            
-            if len(words1) > 0 and len(words2) > 0:
-                overlap = len(words1.intersection(words2)) / len(words1.union(words2))
-                overlaps.append(overlap)
-        
-        return np.mean(overlaps) if overlaps else 0.5
-    
-    def _calculate_syntactic_complexity(self, doc) -> float:
-        """Calculate syntactic complexity score"""
-        # Ratio of clauses to sentences (simplified)
-        total_tokens = len([token for token in doc])
-        clause_indicators = len([token for token in doc if token.dep_ in ["cc", "mark", "aux"]])
-        
-        return clause_indicators / total_tokens if total_tokens > 0 else 0
-    
-    def _cluster_keywords(self, keywords: List[str]) -> List[Dict]:
-        """Cluster keywords into topic groups"""
-        # Simple clustering based on word embeddings (simplified)
-        clusters = []
-        
-        for i, kw1 in enumerate(keywords[:5]):
-            cluster = {"topic": kw1, "related": []}
-            for kw2 in keywords:
-                if kw1 != kw2:
-                    # Simple similarity (in production, use word embeddings)
-                    similarity = len(set(kw1).intersection(set(kw2))) / max(len(kw1), len(kw2))
-                    if similarity > 0.3:
-                        cluster["related"].append(kw2)
-            
-            if cluster["related"]:
-                clusters.append(cluster)
-        
-        return clusters
 
 
-class EnterpriseDashboard:
-    """Enterprise-grade analytics dashboard"""
+class AsyncImageGenerator:
+    """Async wrapper for UltimateImageGenerator - PREMIUM EDITION"""
     
-    def __init__(self):
-        self.app = FastAPI(title="Roastify Analytics Dashboard")
-        self.dash_app = dash.Dash(__name__)
-        self.setup_routes()
-        self.setup_dash_layout()
-        
-        logger.info("Enterprise Dashboard initialized")
-    
-    def setup_routes(self):
-        """Setup API routes"""
-        
-        @self.app.get("/")
-        async def root():
-            return {"message": "Roastify Analytics API", "version": "9.0"}
-        
-        @self.app.get("/health")
-        async def health():
-            return {"status": "healthy", "timestamp": datetime.now().isoformat()}
-        
-        @self.app.post("/analyze")
-        async def analyze_text(text: str = Form(...)):
-            analyzer = AdvancedAIAnalytics()
-            analysis = await analyzer.analyze_text_depth(text)
-            return analysis
-        
-        @self.app.get("/stats")
-        async def get_stats():
-            return {
-                "total_roasts": 1000,
-                "active_users": 500,
-                "success_rate": 98.5,
-                "average_response_time": 2.3
-            }
-    
-    def setup_dash_layout(self):
-        """Setup Dash dashboard layout"""
-        self.dash_app.layout = html.Div([
-            html.H1("Roastify Enterprise Analytics"),
-            
-            dcc.Tabs([
-                dcc.Tab(label='Overview', children=[
-                    html.Div([
-                        html.H3("Real-time Metrics"),
-                        dcc.Graph(id='live-metrics'),
-                        dcc.Interval(id='interval-component', interval=5000)
-                    ])
-                ]),
-                
-                dcc.Tab(label='Text Analysis', children=[
-                    html.Div([
-                        dcc.Textarea(id='text-input', style={'width': '100%', 'height': 200}),
-                        html.Button('Analyze', id='analyze-button'),
-                        html.Div(id='analysis-output')
-                    ])
-                ]),
-                
-                dcc.Tab(label='User Analytics', children=[
-                    html.Div([
-                        dcc.Graph(id='user-metrics'),
-                        dcc.Graph(id='engagement-metrics')
-                    ])
-                ]),
-                
-                dcc.Tab(label='System Health', children=[
-                    html.Div([
-                        html.H3("System Status"),
-                        html.Table([
-                            html.Tr([html.Th("Component"), html.Th("Status"), html.Th("Performance")]),
-                            html.Tr([html.Td("AI Engine"), html.Td("✅"), html.Td("98%")]),
-                            html.Tr([html.Td("Database"), html.Td("✅"), html.Td("99%")]),
-                            html.Tr([html.Td("Image Generator"), html.Td("✅"), html.Td("97%")]),
-                            html.Tr([html.Td("API Gateway"), html.Td("✅"), html.Td("100%")])
-                        ])
-                    ])
-                ])
-            ])
-        ])
-    
-    def run_dashboard(self, host="0.0.0.0", port=8050):
-        """Run the dashboard"""
-        import threading
-        
-        def run_dash():
-            self.dash_app.run_server(host=host, port=port, debug=False)
-        
-        dash_thread = threading.Thread(target=run_dash, daemon=True)
-        dash_thread.start()
-        logger.info(f"Dashboard running at http://{host}:{port}")
-    
-    def run_api(self, host="0.0.0.0", port=8000):
-        """Run the API server"""
-        import threading
-        
-        def run_fastapi():
-            uvicorn.run(self.app, host=host, port=port)
-        
-        api_thread = threading.Thread(target=run_fastapi, daemon=True)
-        api_thread.start()
-        logger.info(f"API running at http://{host}:{port}")
-
-
-class BlockchainIntegrator:
-    """Blockchain integration for premium features"""
-    
-    def __init__(self):
-        self.web3 = None
-        self.contract = None
-        self.setup_blockchain()
-        
-        logger.info("Blockchain Integrator initialized")
-    
-    def setup_blockchain(self):
-        """Setup blockchain connection"""
-        try:
-            # Connect to Ethereum testnet
-            # self.web3 = Web3(Web3.HTTPProvider('https://rinkeby.infura.io/v3/YOUR-PROJECT-ID'))
-            
-            # Load contract ABI
-            # with open('contracts/RoastifyNFT.json') as f:
-            #     contract_abi = json.load(f)
-            
-            # self.contract = self.web3.eth.contract(
-            #     address='CONTRACT_ADDRESS',
-            #     abi=contract_abi
-            # )
-            
-            logger.info("Blockchain setup (simulated)")
-        except Exception as e:
-            logger.error(f"Blockchain setup failed: {e}")
-    
-    async def mint_premium_nft(self, user_id: int, username: str, roast_data: Dict) -> Dict:
-        """Mint premium NFT for special roasts"""
-        try:
-            # Generate unique NFT metadata
-            nft_metadata = {
-                "name": f"Roastify Premium Roast #{user_id}",
-                "description": f"Premium roast NFT for {username}",
-                "image": "ipfs://Qm...",  # IPFS hash of generated image
-                "attributes": [
-                    {"trait_type": "Roast Type", "value": roast_data.get("roast_type", "standard")},
-                    {"trait_type": "Rarity", "value": "Premium"},
-                    {"trait_type": "Date", "value": datetime.now().isoformat()},
-                    {"trait_type": "Owner", "value": username}
-                ]
-            }
-            
-            # In production: Actually mint NFT on blockchain
-            # transaction = self.contract.functions.mintNFT(
-            #     user_id,
-            #     json.dumps(nft_metadata)
-            # ).buildTransaction({
-            #     'chainId': 4,  # Rinkeby
-            #     'gas': 200000,
-            #     'gasPrice': self.web3.toWei('50', 'gwei'),
-            #     'nonce': self.web3.eth.getTransactionCount('OWNER_ADDRESS'),
-            # })
-            
-            # signed_txn = self.web3.eth.account.sign_transaction(
-            #     transaction, 
-            #     private_key='PRIVATE_KEY'
-            # )
-            
-            # tx_hash = self.web3.eth.sendRawTransaction(signed_txn.rawTransaction)
-            
-            # For now, simulate
-            tx_hash = f"0x{hashlib.sha256(f'{user_id}{username}'.encode()).hexdigest()[:64]}"
-            
-            return {
-                "success": True,
-                "nft_metadata": nft_metadata,
-                "transaction_hash": tx_hash,
-                "explorer_url": f"https://rinkeby.etherscan.io/tx/{tx_hash}",
-                "message": "Premium NFT minted successfully"
-            }
-            
-        except Exception as e:
-            logger.error(f"NFT minting failed: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "message": "NFT minting failed"
-            }
-    
-    async def verify_ownership(self, user_id: int, nft_id: str) -> bool:
-        """Verify NFT ownership"""
-        try:
-            # In production: Check on-chain
-            # balance = self.contract.functions.balanceOf(user_address, nft_id).call()
-            # return balance > 0
-            
-            # Simulate
-            return True
-        except:
-            return False
-
-
-class AdvancedImageProcessor:
-    """Advanced image processing with AI"""
-    
-    def __init__(self):
-        self.face_detector = dlib.get_frontal_face_detector()
-        self.shape_predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
-        self.face_recognizer = dlib.face_recognition_model_v1("dlib_face_recognition_resnet_model_v1.dat")
-        
-        # Load OpenCV models
-        self.cascade_classifier = cv2.CascadeClassifier(
-            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+    def __init__(self, config: Optional[ImageConfig] = None):
+        self.generator = UltimateImageGenerator(config)
+        self.executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=8,  # Increased for premium
+            thread_name_prefix='PremiumImageGen'
         )
-        
-        logger.info("Advanced Image Processor initialized")
+        self.theme_manager = PremiumThemeManager()
+        self.badge_system = PremiumBadgeSystem()
+        logger.info("Premium AsyncImageGenerator initialized")
     
-    async def enhance_image_ai(self, image_path: str, enhancements: List[str]) -> str:
-        """Apply AI-powered image enhancements"""
+    async def generate_premium_roast_image(self, roast_text: Any, user_info: Any,
+                                         theme: str = "diamond",
+                                         badges: List[Dict] = None) -> GenerationResult:
+        """Generate premium roast image with theme and badges"""
+        loop = asyncio.get_event_loop()
+        
         try:
-            image = cv2.imread(image_path)
-            if image is None:
-                image = Image.open(image_path)
-                image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+            # Get theme configuration
+            theme_config = self.theme_manager.get_theme(theme)
             
-            # Apply requested enhancements
-            for enhancement in enhancements:
-                if enhancement == "super_resolution":
-                    image = await self._apply_super_resolution(image)
-                elif enhancement == "face_enhancement":
-                    image = await self._enhance_faces(image)
-                elif enhancement == "color_correction":
-                    image = await self._color_correct(image)
-                elif enhancement == "noise_reduction":
-                    image = await self._reduce_noise(image)
-                elif enhancement == "sharpening":
-                    image = await self._sharpen_image(image)
-                elif enhancement == "background_blur":
-                    image = await self._blur_background(image)
-                elif enhancement == "style_transfer":
-                    image = await self._apply_style_transfer(image)
-            
-            # Save enhanced image
-            output_path = f"temp/enhanced_{uuid.uuid4().hex}.jpg"
-            cv2.imwrite(output_path, image, [cv2.IMWRITE_JPEG_QUALITY, 95])
-            
-            return output_path
-            
-        except Exception as e:
-            logger.error(f"Image enhancement failed: {e}")
-            return image_path
-    
-    async def _apply_super_resolution(self, image):
-        """Apply super resolution using AI"""
-        # In production, use ESRGAN or similar
-        # For now, use OpenCV resize with interpolation
-        height, width = image.shape[:2]
-        new_height, new_width = height * 2, width * 2
-        
-        return cv2.resize(image, (new_width, new_height), 
-                         interpolation=cv2.INTER_CUBIC)
-    
-    async def _enhance_faces(self, image):
-        """Enhance faces in the image"""
-        # Detect faces
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        faces = self.face_detector(gray)
-        
-        for face in faces:
-            # Get face region
-            x, y, w, h = face.left(), face.top(), face.width(), face.height()
-            
-            # Extract face ROI
-            face_roi = image[y:y+h, x:x+w]
-            
-            # Apply enhancements to face
-            face_enhanced = cv2.bilateralFilter(face_roi, 9, 75, 75)
-            face_enhanced = self._adjust_contrast_brightness(face_enhanced, alpha=1.1, beta=10)
-            
-            # Blend back
-            image[y:y+h, x:x+w] = cv2.addWeighted(
-                face_roi, 0.3, face_enhanced, 0.7, 0
+            # Create custom border and background
+            border_config = BorderConfig(
+                border_type=BorderType.ROUNDED,
+                border_width=10,
+                border_color=theme_config["colors"][0],
+                border_radius=30,
+                inner_glow=True,
+                outer_shadow=True,
+                shadow_blur=20,
+                shadow_offset=(5, 5),
+                shadow_color="#00000080"
             )
-        
-        return image
-    
-    async def _color_correct(self, image):
-        """Automatic color correction"""
-        # Convert to LAB color space
-        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
-        
-        # Split channels
-        l, a, b = cv2.split(lab)
-        
-        # Apply CLAHE to L channel
-        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-        l = clahe.apply(l)
-        
-        # Merge channels
-        lab = cv2.merge([l, a, b])
-        
-        # Convert back to BGR
-        return cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-    
-    async def _reduce_noise(self, image):
-        """Reduce image noise"""
-        return cv2.fastNlMeansDenoisingColored(image, None, 10, 10, 7, 21)
-    
-    async def _sharpen_image(self, image):
-        """Sharpen image"""
-        kernel = np.array([[-1, -1, -1],
-                          [-1,  9, -1],
-                          [-1, -1, -1]])
-        return cv2.filter2D(image, -1, kernel)
-    
-    async def _blur_background(self, image):
-        """Blur background while keeping foreground sharp"""
-        # Detect foreground (simplified - in production use segmentation)
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        
-        # Create mask (simplified)
-        _, mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-        
-        # Apply Gaussian blur to background
-        blurred = cv2.GaussianBlur(image, (21, 21), 0)
-        
-        # Combine
-        foreground = cv2.bitwise_and(image, image, mask=mask)
-        background = cv2.bitwise_and(blurred, blurred, mask=cv2.bitwise_not(mask))
-        
-        return cv2.add(foreground, background)
-    
-    async def _apply_style_transfer(self, image):
-        """Apply artistic style transfer"""
-        # In production, use a pre-trained style transfer model
-        # For now, apply a simple filter
-        styles = [
-            cv2.COLORMAP_AUTUMN,
-            cv2.COLORMAP_BONE,
-            cv2.COLORMAP_JET,
-            cv2.COLORMAP_WINTER,
-            cv2.COLORMAP_RAINBOW,
-            cv2.COLORMAP_OCEAN,
-            cv2.COLORMAP_SUMMER,
-            cv2.COLORMAP_SPRING,
-            cv2.COLORMAP_COOL,
-            cv2.COLORMAP_HSV,
-            cv2.COLORMAP_PINK,
-            cv2.COLORMAP_HOT
-        ]
-        
-        style = random.choice(styles)
-        return cv2.applyColorMap(image, style)
-    
-    def _adjust_contrast_brightness(self, image, alpha=1.0, beta=0):
-        """Adjust contrast and brightness"""
-        return cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
-    
-    async def generate_3d_model(self, image_path: str) -> str:
-        """Generate 3D model from image (simplified)"""
-        try:
-            image = cv2.imread(image_path)
-            height, width = image.shape[:2]
             
-            # Create depth map (simplified)
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            sobel_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=5)
-            sobel_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=5)
-            depth_map = np.sqrt(sobel_x**2 + sobel_y**2)
+            background_config = BackgroundConfig(
+                background_type="gradient",
+                gradient_colors=theme_config["bg_gradient"],
+                gradient_direction=GradientDirection.DIAGONAL,
+                blur_radius=5,
+                pattern_overlay=True,
+                pattern_opacity=0.1
+            )
             
-            # Normalize
-            depth_map = cv2.normalize(depth_map, None, 0, 255, cv2.NORM_MINMAX)
+            # Generate base image
+            result = await loop.run_in_executor(
+                self.executor,
+                lambda: self.generator.generate_roast_image(
+                    roast_text, user_info, "premium", border_config, background_config
+                )
+            )
             
-            # Save as pseudo-3D data
-            obj_content = self._create_obj_file(image, depth_map)
+            # Add badges if available
+            if result.success and badges and len(badges) > 0:
+                await self._add_badges_to_image(result.image_path, badges)
             
-            output_path = f"temp/model_{uuid.uuid4().hex}.obj"
-            with open(output_path, 'w') as f:
-                f.write(obj_content)
-            
-            return output_path
+            return result
             
         except Exception as e:
-            logger.error(f"3D model generation failed: {e}")
+            logger.error(f"Premium image generation failed: {e}")
+            # Fallback to regular generation
+            return await self.generate_roast_image_async(roast_text, user_info, "auto", None, None)
+    
+    async def _add_badges_to_image(self, image_path: str, badges: List[Dict]):
+        """Add badges to image"""
+        if not HAS_PIL or not badges:
+            return
+        
+        try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                self.executor,
+                self._add_badges_to_image_sync,
+                image_path,
+                badges
+            )
+        except Exception as e:
+            logger.error(f"Error adding badges: {e}")
+    
+    def _add_badges_to_image_sync(self, image_path: str, badges: List[Dict]):
+        """Sync version of badge addition"""
+        try:
+            img = Image.open(image_path).convert('RGBA')
+            draw = ImageDraw.Draw(img)
+            
+            # Badge size and position
+            badge_size = 40
+            start_x = img.width - (len(badges) * (badge_size + 10)) - 20
+            start_y = 20
+            
+            # Add each badge
+            for i, badge in enumerate(badges[:5]):  # Max 5 badges
+                badge_img = self._create_small_badge(badge, badge_size)
+                if badge_img:
+                    img.paste(badge_img, (start_x + i * (badge_size + 10), start_y), badge_img)
+            
+            img.save(image_path, 'PNG')
+            
+        except Exception as e:
+            logger.error(f"Error in badge addition sync: {e}")
+    
+    def _create_small_badge(self, badge: Dict, size: int = 40) -> Optional[Image.Image]:
+        """Create small badge icon"""
+        try:
+            img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(img)
+            
+            # Parse color
+            color = badge["color"]
+            if color.startswith('#'):
+                color = tuple(int(color[i:i+2], 16) for i in (1, 3, 5))
+            
+            # Draw circle
+            draw.ellipse([2, 2, size-2, size-2], fill=color, outline=(255, 255, 255), width=2)
+            
+            # Add emoji or text
+            badge_name = badge["name"]
+            if badge_name and badge_name[0].isprintable():
+                text = badge_name[0]
+                try:
+                    font = ImageFont.truetype("assets/fonts/arial.ttf", 20)
+                except:
+                    font = ImageFont.load_default()
+                
+                bbox = draw.textbbox((0, 0), text, font=font)
+                text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1]
+                
+                draw.text(
+                    ((size - text_width) // 2, (size - text_height) // 2 - 5),
+                    text, font=font, fill=(255, 255, 255)
+                )
+            
+            return img
+            
+        except Exception as e:
+            logger.error(f"Error creating small badge: {e}")
             return None
     
-    def _create_obj_file(self, image, depth_map):
-        """Create OBJ 3D model file"""
-        height, width = image.shape[:2]
+    # Keep original methods for compatibility
+    async def generate_roast_image_async(self, roast_text: Any, user_info: Any,
+                                       style: str = "auto", 
+                                       border_config: Optional[BorderConfig] = None,
+                                       background_config: Optional[BackgroundConfig] = None) -> GenerationResult:
+        """Async wrapper for image generation"""
+        loop = asyncio.get_event_loop()
         
-        obj_content = "# Roastify 3D Model\n"
-        obj_content += f"# Generated: {datetime.now()}\n"
-        obj_content += f"# Dimensions: {width} x {height}\n\n"
+        try:
+            result = await loop.run_in_executor(
+                self.executor,
+                lambda: self.generator.generate_roast_image(
+                    roast_text, user_info, style, border_config, background_config
+                )
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Async image generation failed: {e}")
+            return GenerationResult(
+                success=False,
+                error=str(e),
+                processing_time=0.0
+            )
+    
+    async def generate_welcome_image_async(self, user_info: Any) -> GenerationResult:
+        """Async wrapper for welcome image generation"""
+        loop = asyncio.get_event_loop()
         
-        # Add vertices
-        scale = 0.01
-        for y in range(0, height, 5):
-            for x in range(0, width, 5):
-                z = depth_map[y, x] * scale
-                obj_content += f"v {x*scale} {y*scale} {z}\n"
+        try:
+            result = await loop.run_in_executor(
+                self.executor,
+                lambda: self.generator.generate_welcome_image(user_info)
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Async welcome image generation failed: {e}")
+            return GenerationResult(
+                success=False,
+                error=str(e),
+                processing_time=0.0
+            )
+    
+    async def generate_achievement_image_async(self, user_info: Any, achievement: Any) -> GenerationResult:
+        """Async wrapper for achievement image generation"""
+        loop = asyncio.get_event_loop()
         
-        # Add texture coordinates
-        for y in range(0, height, 5):
-            for x in range(0, width, 5):
-                u = x / width
-                v = 1 - (y / height)
-                obj_content += f"vt {u:.4f} {v:.4f}\n"
-        
-        # Add faces
-        rows = height // 5
-        cols = width // 5
-        
-        for y in range(rows - 1):
-            for x in range(cols - 1):
-                v1 = y * cols + x + 1
-                v2 = y * cols + x + 2
-                v3 = (y + 1) * cols + x + 2
-                v4 = (y + 1) * cols + x + 1
-                
-                obj_content += f"f {v1}/{v1} {v2}/{v2} {v3}/{v3} {v4}/{v4}\n"
-        
-        return obj_content
+        try:
+            result = await loop.run_in_executor(
+                self.executor,
+                lambda: self.generator.generate_achievement_image(user_info, achievement)
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Async achievement image generation failed: {e}")
+            return GenerationResult(
+                success=False,
+                error=str(e),
+                processing_time=0.0
+            )
+    
+    def get_stats(self) -> Dict:
+        """Get generator statistics"""
+        stats = self.generator.get_detailed_stats()
+        stats["premium_features"] = True
+        stats["themes_available"] = len(self.theme_manager.themes)
+        return stats
+    
+    def health_check(self) -> Dict:
+        """Health check"""
+        health = self.generator.health_check()
+        health["premium"] = True
+        health["badge_system"] = True
+        health["theme_manager"] = True
+        return health
+    
+    def cleanup(self):
+        """Cleanup resources"""
+        try:
+            self.generator.cleanup()
+            self.executor.shutdown(wait=False)
+        except:
+            pass
 
 
-class EnterpriseSecurity:
-    """Enterprise-grade security module"""
+class PremiumRoastifyBot:
+    """Main Roastify Bot Class v15.0 - PREMIUM EDITION"""
     
     def __init__(self):
-        self.fernet_key = Fernet.generate_key()
-        self.cipher_suite = Fernet(self.fernet_key)
+        """Initialize the bot"""
+        self.bot_token = BOT_TOKEN
+        self.bot_name = BOT_IDENTITY.get("name", "Roastify Premium")
+        self.bot_tagline = BOT_IDENTITY.get("tagline", "Ultimate Roasting Experience")
         
-        # Generate RSA keys
-        self.private_key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=2048
-        )
-        self.public_key = self.private_key.public_key()
+        # Initialize components
+        self.db = get_database()
         
-        # Setup rate limiting
-        self.request_log = {}
-        self.max_requests = 100  # per minute
+        # Premium initialization
+        self.theme_manager = PremiumThemeManager()
+        self.badge_system = PremiumBadgeSystem()
+        self.user_analytics = PremiumUserAnalytics()
         
-        logger.info("Enterprise Security initialized")
-    
-    def encrypt_sensitive_data(self, data: str) -> str:
-        """Encrypt sensitive data"""
-        encrypted = self.cipher_suite.encrypt(data.encode())
-        return encrypted.decode()
-    
-    def decrypt_sensitive_data(self, encrypted_data: str) -> str:
-        """Decrypt sensitive data"""
-        decrypted = self.cipher_suite.decrypt(encrypted_data.encode())
-        return decrypted.decode()
-    
-    def rsa_encrypt(self, data: str) -> bytes:
-        """Encrypt with RSA public key"""
-        encrypted = self.public_key.encrypt(
-            data.encode(),
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
-            )
+        # Initialize Image Generator with premium config
+        image_config = ImageConfig(
+            width=1200,  # Increased for premium
+            height=1200,
+            quality=100,  # Maximum quality
+            format="PNG",
+            enable_cache=True,
+            cache_ttl_hours=48,  # Longer cache
+            max_cache_size=5000,  # Larger cache
+            output_dir="./output/premium",
+            temp_dir="./temp/premium",
+            cache_dir="./cache/premium",
+            assets_dir="./assets/premium",
+            backup_dir="./backup/premium",
+            max_workers=8,  # More workers
+            timeout=45.0,  # Longer timeout
+            enable_backup=True,
+            compression_level=9,  # Best compression
+            premium_features=True
         )
-        return encrypted
-    
-    def rsa_decrypt(self, encrypted_data: bytes) -> str:
-        """Decrypt with RSA private key"""
-        decrypted = self.private_key.decrypt(
-            encrypted_data,
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
-            )
-        )
-        return decrypted.decode()
-    
-    def generate_jwt_token(self, user_id: int, username: str, 
-                          expires_in_hours: int = 24) -> str:
-        """Generate JWT token"""
-        payload = {
-            "user_id": user_id,
-            "username": username,
-            "exp": datetime.now() + timedelta(hours=expires_in_hours),
-            "iat": datetime.now()
+        
+        self.image_gen = AsyncImageGenerator(image_config)
+        
+        # Initialize premium modules if available
+        if HAS_PREMIUM:
+            try:
+                self.user_info_card = UserInformationCard()
+                self.ai_analytics = AdvancedAIAnalytics()
+                self.enterprise_dashboard = EnterpriseDashboard()
+                self.blockchain = BlockchainIntegrator()
+                self.advanced_image_processor = AdvancedImageProcessor()
+                self.security = EnterpriseSecurity()
+                self.report_generator = AdvancedReportGenerator()
+                self.has_full_premium = True
+                logger.info("All premium modules loaded successfully")
+            except Exception as e:
+                logger.error(f"Error loading premium modules: {e}")
+                self.has_full_premium = False
+        else:
+            self.has_full_premium = False
+        
+        # Initialize other components
+        self.diagram_gen = DiagramGenerator()
+        self.template_manager = TemplateManager()
+        self.roast_engine = RoastEngine()
+        self.welcome_system = WelcomeSystem()
+        self.voting_system = VotingSystem()
+        self.reaction_system = ReactionSystem()
+        self.mention_roast = MentionRoast()
+        self.admin_protection = AdminProtection()
+        self.leaderboard = Leaderboard()
+        self.festival_mode = FestivalMode()
+        self.mood_recognition = AutoMoodRecognition()
+        self.safe_forward = SafeForwardShare()
+        
+        # Initialize job-based features
+        self.auto_daily_quote = None
+        
+        try:
+            self.custom_unlocks = CustomTemplateUnlocks()
+        except:
+            self.custom_unlocks = None
+        
+        # Load all features
+        try:
+            self.features = load_all_features()
+        except:
+            self.features = {}
+        
+        # Premium Statistics
+        self.stats = {
+            "messages_processed": 0,
+            "roasts_generated": 0,
+            "images_created": 0,
+            "diagrams_created": 0,
+            "users_interacted": set(),
+            "groups_managed": set(),
+            "start_time": datetime.now(),
+            "cache_hits": 0,
+            "cache_misses": 0,
+            "premium_users": set(),
+            "premium_roasts": 0,
+            "user_info_cards": 0,
+            "ai_analyses": 0
         }
         
-        token = jwt.encode(payload, self.fernet_key, algorithm="HS256")
-        return token
+        # Premium user data
+        self.premium_user_data = {}
+        
+        # Application instance
+        self.application = None
+        
+        # Rate limiting (more generous for premium)
+        self.user_cooldowns = {}
+        self.cooldown_seconds = max(CORE_RULES.get("cooldown_seconds", 3) - 1, 1)  # Faster for premium
+        
+        logger.info(f"Initialized {self.bot_name} Bot v15.0 PREMIUM EDITION")
+        logger.info(f"Premium Features: {self.has_full_premium}")
     
-    def verify_jwt_token(self, token: str) -> Dict:
-        """Verify JWT token"""
-        try:
-            payload = jwt.decode(token, self.fernet_key, algorithms=["HS256"])
-            return {"valid": True, "payload": payload}
-        except jwt.ExpiredSignatureError:
-            return {"valid": False, "error": "Token expired"}
-        except jwt.InvalidTokenError:
-            return {"valid": False, "error": "Invalid token"}
-    
-    def check_rate_limit(self, user_id: int) -> bool:
-        """Check rate limit for user"""
+    def _check_cooldown(self, user_id: int) -> bool:
+        """Check if user is in cooldown (premium version)"""
         now = time.time()
-        minute_ago = now - 60
+        last_request = self.user_cooldowns.get(user_id, 0)
         
-        # Clean old entries
-        self.request_log = {uid: times for uid, times in self.request_log.items()
-                           if any(t > minute_ago for t in times)}
+        # Premium users get faster cooldown
+        is_premium = user_id in self.stats["premium_users"]
+        cooldown = self.cooldown_seconds / 2 if is_premium else self.cooldown_seconds
         
-        # Get user requests
-        user_requests = self.request_log.get(user_id, [])
-        user_requests = [t for t in user_requests if t > minute_ago]
-        
-        if len(user_requests) >= self.max_requests:
+        if now - last_request < cooldown:
             return False
         
-        # Add current request
-        user_requests.append(now)
-        self.request_log[user_id] = user_requests
-        
+        self.user_cooldowns[user_id] = now
         return True
     
-    def hash_password(self, password: str) -> str:
-        """Hash password with bcrypt"""
-        salt = bcrypt.gensalt()
-        hashed = bcrypt.hashpw(password.encode(), salt)
-        return hashed.decode()
-    
-    def verify_password(self, password: str, hashed_password: str) -> bool:
-        """Verify password against hash"""
-        return bcrypt.checkpw(password.encode(), hashed_password.encode())
-    
-    def generate_2fa_code(self, user_id: int) -> str:
-        """Generate 2FA code"""
-        secret = hashlib.sha256(f"{user_id}{self.fernet_key}".encode()).hexdigest()[:16]
+    async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /start command - PREMIUM VERSION"""
+        user = update.effective_user
+        chat = update.effective_chat
         
-        # Generate TOTP code (simplified)
-        timestamp = int(time.time() // 30)
-        hmac_hash = hmac.new(
-            secret.encode(),
-            timestamp.to_bytes(8, byteorder='big'),
-            hashlib.sha1
-        ).digest()
-        
-        offset = hmac_hash[-1] & 0x0F
-        code = ((hmac_hash[offset] & 0x7F) << 24 |
-                (hmac_hash[offset + 1] & 0xFF) << 16 |
-                (hmac_hash[offset + 2] & 0xFF) << 8 |
-                (hmac_hash[offset + 3] & 0xFF))
-        
-        return str(code % 10**6).zfill(6)
-    
-    def audit_log(self, user_id: int, action: str, details: Dict = None):
-        """Log security audit trail"""
-        log_entry = {
-            "timestamp": datetime.now().isoformat(),
-            "user_id": user_id,
-            "action": action,
-            "details": details or {},
-            "ip_address": self._get_client_ip()  # In production
-        }
-        
-        # Save to secure log
-        with open("logs/security_audit.log", "a") as f:
-            f.write(json.dumps(log_entry) + "\n")
-        
-        logger.info(f"Security audit: {action} by user {user_id}")
-    
-    def _get_client_ip(self) -> str:
-        """Get client IP address"""
-        # In production, get from request headers
-        return "127.0.0.1"
-
-
-class AdvancedReportGenerator:
-    """Generate professional reports"""
-    
-    def __init__(self):
-        self.styles = getSampleStyleSheet()
-        logger.info("Advanced Report Generator initialized")
-    
-    async def generate_pdf_report(self, analysis_data: Dict, user_info: Dict) -> str:
-        """Generate professional PDF report"""
         try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"reports/roast_analysis_{user_info.get('id', 'user')}_{timestamp}.pdf"
-            
-            # Create PDF
-            doc = SimpleDocTemplate(
-                filename,
-                pagesize=letter,
-                rightMargin=72,
-                leftMargin=72,
-                topMargin=72,
-                bottomMargin=18
-            )
-            
-            # Build content
-            content = []
-            
-            # Title
-            title_style = self.styles['Title']
-            title = Paragraph(f"Roast Analysis Report - {user_info.get('username', 'User')}", title_style)
-            content.append(title)
-            content.append(Spacer(1, 12))
-            
-            # Date
-            date_style = self.styles['Normal']
-            date = Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", date_style)
-            content.append(date)
-            content.append(Spacer(1, 24))
-            
-            # Executive Summary
-            heading_style = self.styles['Heading1']
-            summary = Paragraph("Executive Summary", heading_style)
-            content.append(summary)
-            content.append(Spacer(1, 12))
-            
-            summary_text = f"""
-            This report provides a comprehensive analysis of the roast content generated for 
-            {user_info.get('first_name', 'User')}. The analysis includes sentiment scoring, 
-            readability metrics, emotional tone analysis, and AI-powered insights.
-            """
-            content.append(Paragraph(summary_text, self.styles['Normal']))
-            content.append(Spacer(1, 24))
-            
-            # Basic Metrics
-            content.append(Paragraph("Basic Text Metrics", heading_style))
-            content.append(Spacer(1, 12))
-            
-            metrics = analysis_data.get("basic_metrics", {})
-            metrics_text = f"""
-            • Character Count: {metrics.get('char_count', 0):,}
-            • Word Count: {metrics.get('word_count', 0):,}
-            • Sentence Count: {metrics.get('sentence_count', 0):,}
-            • Average Sentence Length: {metrics.get('avg_sentence_length', 0):.1f} words
-            • Unique Words: {metrics.get('unique_words', 0):,}
-            """
-            content.append(Paragraph(metrics_text, self.styles['Normal']))
-            content.append(Spacer(1, 24))
-            
-            # Sentiment Analysis
-            content.append(Paragraph("Sentiment Analysis", heading_style))
-            content.append(Spacer(1, 12))
-            
-            sentiment = analysis_data.get("sentiment_analysis", {})
-            overall = sentiment.get("overall_sentiment", {})
-            
-            sentiment_text = f"""
-            • Overall Sentiment: {overall.get('label', 'NEUTRAL')}
-            • Confidence Score: {overall.get('confidence', 0):.2%}
-            • VADER Score: {sentiment.get('vader', {}).get('compound', 0):.3f}
-            • TextBlob Polarity: {sentiment.get('textblob', {}).get('polarity', 0):.3f}
-            """
-            content.append(Paragraph(sentiment_text, self.styles['Normal']))
-            content.append(Spacer(1, 24))
-            
-            # Readability Scores
-            content.append(Paragraph("Readability Analysis", heading_style))
-            content.append(Spacer(1, 12))
-            
-            readability = analysis_data.get("readability_scores", {})
-            readability_text = f"""
-            • Flesch Reading Ease: {readability.get('flesch_reading_ease', 0):.1f}
-            • Flesch-Kincaid Grade Level: {readability.get('flesch_kincaid_grade', 0):.1f}
-            • Gunning Fog Index: {readability.get('gunning_fog', 0):.1f}
-            • Reading Level: {readability.get('reading_level', 'Unknown')}
-            """
-            content.append(Paragraph(readability_text, self.styles['Normal']))
-            content.append(Spacer(1, 24))
-            
-            # AI Insights
-            content.append(Paragraph("AI Insights", heading_style))
-            content.append(Spacer(1, 12))
-            
-            insights = analysis_data.get("ai_insights", {})
-            insights_text = f"""
-            {insights.get('ai_summary', 'No summary available')}
-            
-            Key Takeaways:
-            {insights.get('key_takeaways', 'No takeaways available')}
-            
-            Improvement Suggestions:
-            {insights.get('improvement_suggestions', 'No suggestions available')}
-            """
-            content.append(Paragraph(insights_text, self.styles['Normal']))
-            content.append(Spacer(1, 24))
-            
-            # Footer
-            footer = Paragraph(
-                f"Report generated by Roastify Bot v9.0 | {datetime.now().strftime('%Y-%m-%d')}",
-                self.styles['Italic']
-            )
-            content.append(footer)
-            
-            # Build PDF
-            doc.build(content)
-            
-            logger.info(f"PDF report generated: {filename}")
-            return filename
-            
-        except Exception as e:
-            logger.error(f"PDF report generation failed: {e}")
-            return None
-    
-    async def generate_excel_report(self, analysis_data: Dict, user_info: Dict) -> str:
-        """Generate Excel report with charts"""
-        try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"reports/roast_analysis_{user_info.get('id', 'user')}_{timestamp}.xlsx"
-            
-            workbook = openpyxl.Workbook()
-            
-            # Summary sheet
-            summary_sheet = workbook.active
-            summary_sheet.title = "Summary"
-            
-            # Add headers
-            summary_sheet['A1'] = "Roast Analysis Report"
-            summary_sheet['A2'] = f"User: {user_info.get('username', 'Unknown')}"
-            summary_sheet['A3'] = f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            
-            # Add metrics
-            row = 5
-            metrics = analysis_data.get("basic_metrics", {})
-            for key, value in metrics.items():
-                summary_sheet[f'A{row}'] = key.replace('_', ' ').title()
-                summary_sheet[f'B{row}'] = value
-                row += 1
-            
-            # Sentiment sheet
-            sentiment_sheet = workbook.create_sheet("Sentiment")
-            sentiment = analysis_data.get("sentiment_analysis", {})
-            
-            sentiment_sheet['A1'] = "Sentiment Metrics"
-            row = 3
-            for key, value in sentiment.items():
-                if isinstance(value, dict):
-                    for subkey, subvalue in value.items():
-                        sentiment_sheet[f'A{row}'] = f"{key} - {subkey}"
-                        sentiment_sheet[f'B{row}'] = subvalue
-                        row += 1
-                else:
-                    sentiment_sheet[f'A{row}'] = key
-                    sentiment_sheet[f'B{row}'] = value
-                    row += 1
-            
-            # Readability sheet
-            readability_sheet = workbook.create_sheet("Readability")
-            readability = analysis_data.get("readability_scores", {})
-            
-            readability_sheet['A1'] = "Readability Scores"
-            row = 3
-            for key, value in readability.items():
-                readability_sheet[f'A{row}'] = key.replace('_', ' ').title()
-                readability_sheet[f'B{row}'] = value
-                row += 1
-            
-            # Save workbook
-            workbook.save(filename)
-            
-            logger.info(f"Excel report generated: {filename}")
-            return filename
-            
-        except Exception as e:
-            logger.error(f"Excel report generation failed: {e}")
-            return None
-    
-    async def generate_dashboard_report(self, analysis_data: Dict, user_info: Dict) -> str:
-        """Generate interactive HTML dashboard report"""
-        try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"reports/dashboard_{user_info.get('id', 'user')}_{timestamp}.html"
-            
-            # Create Plotly figures
-            fig = make_subplots(
-                rows=2, cols=2,
-                subplot_titles=('Sentiment Analysis', 'Readability Scores',
-                              'Emotional Tone', 'Linguistic Features'),
-                specs=[[{'type': 'indicator'}, {'type': 'bar'}],
-                       [{'type': 'heatmap'}, {'type': 'pie'}]]
-            )
-            
-            # Sentiment gauge
-            overall = analysis_data.get("sentiment_analysis", {}).get("overall_sentiment", {})
-            sentiment_score = overall.get("score", 0)
-            
-            fig.add_trace(
-                go.Indicator(
-                    mode="gauge+number",
-                    value=sentiment_score,
-                    title={'text': "Sentiment Score"},
-                    domain={'row': 0, 'column': 0},
-                    gauge={
-                        'axis': {'range': [-1, 1]},
-                        'bar': {'color': "darkblue"},
-                        'steps': [
-                            {'range': [-1, -0.3], 'color': "red"},
-                            {'range': [-0.3, 0.3], 'color': "yellow"},
-                            {'range': [0.3, 1], 'color': "green"}
-                        ]
-                    }
-                ),
-                row=1, col=1
-            )
-            
-            # Readability bars
-            readability = analysis_data.get("readability_scores", {})
-            readability_keys = ['flesch_reading_ease', 'flesch_kincaid_grade', 
-                               'gunning_fog', 'coleman_liau']
-            readability_values = [readability.get(k, 0) for k in readability_keys]
-            
-            fig.add_trace(
-                go.Bar(
-                    x=[k.replace('_', ' ').title() for k in readability_keys],
-                    y=readability_values,
-                    name="Readability Scores"
-                ),
-                row=1, col=2
-            )
-            
-            # Emotional heatmap
-            emotions = analysis_data.get("emotional_tone", {}).get("emotion_scores", {})
-            emotion_names = list(emotions.keys())
-            emotion_values = list(emotions.values())
-            
-            fig.add_trace(
-                go.Heatmap(
-                    z=[emotion_values],
-                    x=emotion_names,
-                    y=['Emotional Intensity'],
-                    colorscale='Viridis',
-                    showscale=True
-                ),
-                row=2, col=1
-            )
-            
-            # POS distribution pie
-            linguistic = analysis_data.get("linguistic_features", {})
-            pos_dist = linguistic.get("pos_distribution", {})
-            
-            fig.add_trace(
-                go.Pie(
-                    labels=list(pos_dist.keys()),
-                    values=list(pos_dist.values()),
-                    name="POS Distribution"
-                ),
-                row=2, col=2
-            )
-            
-            # Update layout
-            fig.update_layout(
-                height=800,
-                showlegend=True,
-                title_text=f"Roast Analysis Dashboard - {user_info.get('username', 'User')}"
-            )
-            
-            # Generate HTML
-            html_content = fig.to_html(include_plotlyjs='cdn', full_html=True)
-            
-            # Add custom CSS and metadata
-            full_html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Roast Analysis Dashboard</title>
-                <style>
-                    body {{ font-family: Arial, sans-serif; margin: 40px; }}
-                    .header {{ text-align: center; padding: 20px; background: #f0f0f0; }}
-                    .info {{ margin: 20px 0; padding: 15px; background: #f9f9f9; }}
-                    .footer {{ margin-top: 40px; text-align: center; color: #666; }}
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <h1>Roast Analysis Dashboard</h1>
-                    <h3>{user_info.get('first_name', 'User')} • {datetime.now().strftime('%Y-%m-%d')}</h3>
-                </div>
-                
-                <div class="info">
-                    <p><strong>Generated:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-                    <p><strong>Overall Sentiment:</strong> {overall.get('label', 'NEUTRAL')}</p>
-                    <p><strong>Reading Level:</strong> {readability.get('reading_level', 'Unknown')}</p>
-                </div>
-                
-                {html_content}
-                
-                <div class="footer">
-                    <p>Generated by Roastify Bot v9.0 - Advanced Professional Edition</p>
-                    <p>© {datetime.now().year} Roastify. All rights reserved.</p>
-                </div>
-            </body>
-            </html>
-            """
-            
-            with open(filename, 'w', encoding='utf-8') as f:
-                f.write(full_html)
-            
-            logger.info(f"Dashboard report generated: {filename}")
-            return filename
-            
-        except Exception as e:
-            logger.error(f"Dashboard report generation failed: {e}")
-            return None
-
-
-class PremiumRoastifyBot(RoastifyBot):
-    """Premium version with all advanced features"""
-    
-    def __init__(self):
-        super().__init__()
-        
-        # Initialize premium features
-        self.ai_analytics = AdvancedAIAnalytics()
-        self.dashboard = EnterpriseDashboard()
-        self.blockchain = BlockchainIntegrator()
-        self.image_processor = AdvancedImageProcessor()
-        self.security = EnterpriseSecurity()
-        self.report_generator = AdvancedReportGenerator()
-        
-        # Premium configuration
-        self.premium_features = {
-            "ai_analytics": True,
-            "enterprise_dashboard": True,
-            "blockchain_nft": True,
-            "advanced_image_processing": True,
-            "enterprise_security": True,
-            "professional_reports": True,
-            "api_access": True,
-            "priority_support": True,
-            "custom_templates": True,
-            "unlimited_usage": True
-        }
-        
-        # Start dashboard servers
-        self.dashboard.run_dashboard()
-        self.dashboard.run_api()
-        
-        logger.info("Premium Roastify Bot v9.0 initialized")
-    
-    async def handle_premium_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle premium commands"""
-        command = update.message.text.split()[0][1:]  # Remove '/'
-        user = update.effective_user
-        
-        if command == "premium":
-            await self._show_premium_features(update, user)
-        elif command == "analyze":
-            await self._deep_analyze(update, context)
-        elif command == "report":
-            await self._generate_report(update, context)
-        elif command == "nft":
-            await self._mint_nft(update, context)
-        elif command == "dashboard":
-            await self._show_dashboard(update, user)
-        elif command == "security":
-            await self._show_security_info(update, user)
-    
-    async def _show_premium_features(self, update: Update, user: Any):
-        """Show premium features"""
-        features_text = """
-🎖️ <b>PREMIUM FEATURES v9.0</b>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🤖 <b>Advanced AI Analytics:</b>
-• Deep text analysis with NLP
-• Sentiment analysis (VADER, TextBlob, BERT)
-• Readability scores & complexity metrics
-• Emotional tone detection
-• Topic modeling & keyword extraction
-• Linguistic feature extraction
-
-📊 <b>Enterprise Dashboard:</b>
-• Real-time analytics
-• Interactive charts & graphs
-• API access for integration
-• Custom reporting tools
-• Multi-user collaboration
-
-🔗 <b>Blockchain Integration:</b>
-• NFT minting for premium roasts
-• Digital ownership verification
-• Transaction history
-• Marketplace integration
-
-🖼️ <b>Advanced Image Processing:</b>
-• AI-powered image enhancement
-• Face detection & enhancement
-• Style transfer & filters
-• 3D model generation
-• Background manipulation
-
-🔒 <b>Enterprise Security:</b>
-• End-to-end encryption
-• JWT token authentication
-• Rate limiting & DDoS protection
-• Two-factor authentication
-• Security audit logging
-
-📈 <b>Professional Reports:</b>
-• PDF reports with analysis
-• Excel spreadsheets with charts
-• Interactive HTML dashboards
-• Custom report templates
-• Scheduled report generation
-
-⚡ <b>Additional Features:</b>
-• Priority processing queue
-• Unlimited usage & storage
-• Custom template creation
-• API access & webhooks
-• Dedicated support
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<b>Commands:</b>
-/premium - Show this menu
-/analyze - Deep text analysis
-/report - Generate professional report
-/nft - Mint premium roast NFT
-/dashboard - Access analytics dashboard
-/security - Security settings
-
-<b>Status:</b> 🟢 ALL FEATURES ACTIVE
-        """
-        
-        await update.message.reply_text(
-            features_text,
-            parse_mode=ParseMode.HTML,
-            disable_web_page_preview=True
-        )
-    
-    async def _deep_analyze(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Perform deep text analysis"""
-        user = update.effective_user
-        
-        if not update.message.text or len(update.message.text.split()) < 2:
-            await update.message.reply_text(
-                "Please provide text to analyze. Usage: /analyze <your text>",
-                parse_mode=ParseMode.HTML
-            )
-            return
-        
-        text = ' '.join(update.message.text.split()[1:])
-        
-        # Show typing indicator
-        await update.message.chat.send_action(action="typing")
-        
-        # Perform deep analysis
-        analysis = await self.ai_analytics.analyze_text_depth(text)
-        
-        # Format results
-        result_text = self._format_analysis_results(analysis, user)
-        
-        await update.message.reply_text(
-            result_text,
-            parse_mode=ParseMode.HTML,
-            disable_web_page_preview=True
-        )
-    
-    def _format_analysis_results(self, analysis: Dict, user: Any) -> str:
-        """Format analysis results for display"""
-        basic = analysis.get("basic_metrics", {})
-        sentiment = analysis.get("sentiment_analysis", {})
-        readability = analysis.get("readability_scores", {})
-        emotions = analysis.get("emotional_tone", {})
-        
-        overall = sentiment.get("overall_sentiment", {})
-        
-        result = f"""
-🔍 <b>DEEP ANALYSIS REPORT for {user.first_name}</b>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-<b>📊 BASIC METRICS:</b>
-• Characters: {basic.get('char_count', 0):,}
-• Words: {basic.get('word_count', 0):,}
-• Sentences: {basic.get('sentence_count', 0):,}
-• Avg Sentence Length: {basic.get('avg_sentence_length', 0):.1f} words
-• Unique Words: {basic.get('unique_words', 0):,}
-
-<b>😊 SENTIMENT ANALYSIS:</b>
-• Overall: <b>{overall.get('label', 'NEUTRAL')}</b>
-• Confidence: {overall.get('confidence', 0):.1%}
-• Score: {overall.get('score', 0):.3f}
-• VADER: {sentiment.get('vader', {}).get('compound', 0):.3f}
-• TextBlob: {sentiment.get('textblob', {}).get('polarity', 0):.3f}
-
-<b>📖 READABILITY:</b>
-• Reading Ease: {readability.get('flesch_reading_ease', 0):.1f}
-• Grade Level: {readability.get('flesch_kincaid_grade', 0):.1f}
-• Fog Index: {readability.get('gunning_fog', 0):.1f}
-• Reading Level: <b>{readability.get('reading_level', 'Unknown')}</b>
-
-<b>🎭 EMOTIONAL TONE:</b>
-• Dominant Emotion: <b>{emotions.get('dominant_emotion', 'Unknown').upper()}</b>
-• Dominance: {emotions.get('dominance_score', 0):.1%}
-• Complexity: {emotions.get('emotional_complexity', 0):.3f}
-
-<b>🔤 LINGUISTIC FEATURES:</b>
-• POS Diversity: {len(analysis.get('linguistic_features', {}).get('pos_distribution', {}))}
-• Dependency Depth: {analysis.get('linguistic_features', {}).get('dependency_depth', 0):.2f}
-• Coherence Score: {analysis.get('linguistic_features', {}).get('coherence_score', 0):.3f}
-
-<b>🤖 AI INSIGHTS:</b>
-{analysis.get('ai_insights', {}).get('ai_summary', 'No summary available')}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>Generated with Advanced AI Analytics v9.0</i>
-        """
-        
-        return result
-    
-    async def _generate_report(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Generate professional report"""
-        user = update.effective_user
-        
-        if not update.message.text or len(update.message.text.split()) < 2:
-            await update.message.reply_text(
-                "Please provide text for report. Usage: /report <your text>",
-                parse_mode=ParseMode.HTML
-            )
-            return
-        
-        text = ' '.join(update.message.text.split()[1:])
-        
-        await update.message.reply_text(
-            "📊 Generating professional report... This may take a moment.",
-            parse_mode=ParseMode.HTML
-        )
-        
-        # Perform analysis
-        analysis = await self.ai_analytics.analyze_text_depth(text)
-        user_info = {
-            "id": user.id,
-            "username": user.username,
-            "first_name": user.first_name,
-            "last_name": user.last_name
-        }
-        
-        # Generate reports
-        reports = []
-        
-        # PDF Report
-        pdf_report = await self.report_generator.generate_pdf_report(analysis, user_info)
-        if pdf_report:
-            with open(pdf_report, 'rb') as pdf_file:
-                await update.message.reply_document(
-                    document=pdf_file,
-                    filename=f"Roast_Analysis_{user.id}.pdf",
-                    caption="📄 Professional PDF Report"
-                )
-            reports.append(pdf_report)
-        
-        # Excel Report
-        excel_report = await self.report_generator.generate_excel_report(analysis, user_info)
-        if excel_report:
-            with open(excel_report, 'rb') as excel_file:
-                await update.message.reply_document(
-                    document=excel_file,
-                    filename=f"Roast_Analysis_{user.id}.xlsx",
-                    caption="📈 Excel Report with Charts"
-                )
-            reports.append(excel_report)
-        
-        # Dashboard Report
-        dashboard_report = await self.report_generator.generate_dashboard_report(analysis, user_info)
-        if dashboard_report:
-            with open(dashboard_report, 'rb') as html_file:
-                await update.message.reply_document(
-                    document=html_file,
-                    filename=f"Roast_Dashboard_{user.id}.html",
-                    caption="📊 Interactive HTML Dashboard"
-                )
-            reports.append(dashboard_report)
-        
-        # Cleanup
-        for report in reports:
-            try:
-                os.remove(report)
-            except:
-                pass
-        
-        await update.message.reply_text(
-            "✅ All reports generated successfully!",
-            parse_mode=ParseMode.HTML
-        )
-    
-    async def _mint_nft(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Mint premium roast NFT"""
-        user = update.effective_user
-        
-        if not update.message.text or len(update.message.text.split()) < 2:
-            await update.message.reply_text(
-                "Please provide text for NFT. Usage: /nft <your text>",
-                parse_mode=ParseMode.HTML
-            )
-            return
-        
-        text = ' '.join(update.message.text.split()[1:])
-        
-        await update.message.reply_text(
-            "🎨 Creating premium roast NFT...",
-            parse_mode=ParseMode.HTML
-        )
-        
-        # Generate roast
-        roast_data = await self.roast_engine.generate_roast(text, user)
-        
-        # Generate image
-        image_result = await self.image_gen.generate_roast_image_async(roast_data, user)
-        
-        if image_result.success:
-            # Mint NFT
-            nft_result = await self.blockchain.mint_premium_nft(
+            # Add user to database
+            self.db.add_or_update_user(
                 user_id=user.id,
-                username=user.username or str(user.id),
-                roast_data=roast_data
+                username=user.username,
+                first_name=user.first_name,
+                last_name=user.last_name,
+                is_premium=True  # All users premium in this version
             )
             
-            if nft_result["success"]:
-                # Send image
-                with open(image_result.image_path, 'rb') as photo:
-                    caption = f"""
-🎉 <b>PREMIUM ROAST NFT MINTED!</b>
+            # Mark as premium user
+            self.stats["premium_users"].add(user.id)
+            
+            # Get premium welcome message
+            welcome_message = f"""
+🎖️ <b>প্রিমিয়ামে স্বাগতম {user.first_name}!</b>
 
-<b>NFT Details:</b>
-• Name: {nft_result['nft_metadata']['name']}
-• Rarity: Premium
-• Transaction: <code>{nft_result['transaction_hash']}</code>
-• Explorer: {nft_result['explorer_url']}
+💎 <b>আপনি এখন {self.bot_name} - {self.bot_tagline}</b>
 
-<b>Roast:</b>
-{roast_data.get('primary_roast', 'No roast available')}
+🚀 <b>প্রিমিয়াম বৈশিষ্ট্য:</b>
+• AI-পাওয়ারড রোস্ট অ্যানালাইসিস
+• প্রিমিয়াম থিমড ইমেজ জেনারেশন
+• অ্যাডভান্সড ইউজার ইনফরমেশন কার্ড
+• রিয়েল-টাইম ড্যাশবোর্ড
+• ব্লকচেইন ভেরিফিকেশন
+• প্রফেশনাল রিপোর্টস
 
-<i>Your unique roast is now immortalized on the blockchain!</i>
-                    """
-                    
+⚡ <b>নতুন কমান্ড:</b>
+/profile - আপনার প্রিমিয়াম প্রোফাইল
+/analyze - এআই টেক্সট অ্যানালাইসিস
+/report - প্রফেশনাল রিপোর্ট
+/stats - ডিটেইল্ড স্ট্যাটিস্টিকস
+/theme - থিম পরিবর্তন করুন
+
+🔥 <b>এখনই চেষ্টা করুন!</b>
+কিছু লিখে দেখুন প্রিমিয়াম রোস্ট!
+            """
+            
+            # Generate premium welcome image
+            welcome_result = await self.image_gen.generate_welcome_image_async(user)
+            
+            if welcome_result.success and welcome_result.image_path:
+                # Send welcome image
+                with open(welcome_result.image_path, 'rb') as photo:
+                    await update.message.reply_photo(
+                        photo=photo,
+                        caption=f"💎 {user.first_name} - প্রিমিয়াম সদস্য!",
+                        parse_mode=ParseMode.HTML
+                    )
+                
+                # Cleanup
+                try:
+                    os.remove(welcome_result.image_path)
+                except:
+                    pass
+            
+            # Send welcome text
+            await update.message.reply_text(
+                welcome_message,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True
+            )
+            
+            # Generate user information card
+            await self._send_user_info_card(update, user, is_new=True)
+            
+            logger.info(f"New premium user {user.id} started")
+            
+        except Exception as e:
+            logger.error(f"Error in premium start command: {e}")
+            await update.message.reply_text(
+                f"💎 স্বাগতম {user.first_name}!\n"
+                f"আপনি এখন {self.bot_name} প্রিমিয়াম এডিশনে!\n\n"
+                f"কিছু লিখে প্রিমিয়াম রোস্ট শুরু করুন!",
+                parse_mode=ParseMode.HTML
+            )
+    
+    async def _send_user_info_card(self, update: Update, user: Any, is_new: bool = False):
+        """Send user information card"""
+        try:
+            if not self.has_full_premium:
+                return
+                
+            # Generate user info card
+            card_result = await self.user_info_card.generate_user_card(user)
+            
+            if card_result and card_result.get("success") and card_result.get("image_path"):
+                caption = "🆕 নতুন প্রিমিয়াম সদস্য!" if is_new else "📊 আপনার প্রোফাইল কার্ড"
+                
+                with open(card_result["image_path"], 'rb') as photo:
                     await update.message.reply_photo(
                         photo=photo,
                         caption=caption,
                         parse_mode=ParseMode.HTML
                     )
                 
+                # Update stats
+                self.stats["user_info_cards"] += 1
+                
+                # Cleanup
+                try:
+                    os.remove(card_result["image_path"])
+                except:
+                    pass
+                    
+        except Exception as e:
+            logger.error(f"Error sending user info card: {e}")
+    
+    async def profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /profile command - Premium user profile"""
+        user = update.effective_user
+        
+        try:
+            # Get user data
+            user_data = self.db.get_user_stats(user.id)
+            
+            # Get badges
+            badges = self.badge_system.get_user_badges(user.id, user_data)
+            
+            # Get analytics
+            analytics = await self.user_analytics.analyze_user_behavior(user.id, user_data)
+            
+            # Generate profile message
+            profile_text = f"""
+📊 <b>প্রিমিয়াম প্রোফাইল: {user.first_name}</b>
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+🏆 <b>স্ট্যাটস:</b>
+• মোট রোস্ট: {user_data.get('total_roasts', 0):,}
+• আপভোট: {user_data.get('upvotes', 0):,}
+• ডাউনভোট: {user_data.get('downvotes', 0):,}
+• র‍্যাংক: #{user_data.get('rank', 'N/A')}
+• অ্যাক্টিভ দিন: {user_data.get('days_active', 1)}
+
+⭐ <b>ব্যাজেস:</b>
+{', '.join([b['name'] for b in badges]) or 'No badges yet'}
+
+📈 <b>অ্যানালাইসিস:</b>
+• অ্যাক্টিভিটি লেভেল: {analytics['activity_level'].replace('_', ' ').title()}
+• রোস্ট স্টাইল: {analytics['roast_style'].replace('_', ' ').title()}
+• এনগেজমেন্ট স্কোর: {analytics['engagement_score']}/100
+
+🔧 <b>কমান্ড:</b>
+/analyze - টেক্সট এআই অ্যানালাইসিস
+/report - ডিটেইল্ড রিপোর্ট
+/stats - বট স্ট্যাটিস্টিকস
+/theme - থিম পরিবর্তন
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+            """
+            
+            await update.message.reply_text(
+                profile_text,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True
+            )
+            
+            # Generate and send premium profile card
+            await self._generate_premium_profile_card(update, user, user_data, badges, analytics)
+            
+        except Exception as e:
+            logger.error(f"Error in profile command: {e}")
+            await update.message.reply_text(
+                "📊 আপনার প্রোফাইল লোড করতে সমস্যা!",
+                parse_mode=ParseMode.HTML
+            )
+    
+    async def _generate_premium_profile_card(self, update: Update, user: Any, 
+                                           user_data: Dict, badges: List[Dict], analytics: Dict):
+        """Generate premium profile card image"""
+        try:
+            # Create profile data
+            profile_data = {
+                "user": user,
+                "stats": user_data,
+                "badges": badges,
+                "analytics": analytics,
+                "premium": True,
+                "theme": "diamond"
+            }
+            
+            # Generate image
+            result = await self.image_gen.generate_premium_roast_image(
+                profile_data, 
+                user,
+                "diamond",
+                badges
+            )
+            
+            if result.success and result.image_path:
+                with open(result.image_path, 'rb') as photo:
+                    await update.message.reply_photo(
+                        photo=photo,
+                        caption="💎 আপনার প্রিমিয়াম প্রোফাইল কার্ড",
+                        parse_mode=ParseMode.HTML
+                    )
+                
+                # Cleanup
+                try:
+                    os.remove(result.image_path)
+                except:
+                    pass
+                    
+        except Exception as e:
+            logger.error(f"Error generating premium profile card: {e}")
+    
+    async def analyze_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /analyze command - AI text analysis"""
+        user = update.effective_user
+        
+        if not update.message.text or len(update.message.text.split()) < 2:
+            await update.message.reply_text(
+                "টেক্সট দিন অ্যানালাইসিসের জন্য: /analyze <your text>",
+                parse_mode=ParseMode.HTML
+            )
+            return
+        
+        text = ' '.join(update.message.text.split()[1:])
+        
+        # Check minimum length
+        if len(text) < 10:
+            await update.message.reply_text(
+                "অ্যানালাইসিসের জন্য কমপক্ষে ১০ অক্ষর প্রয়োজন।",
+                parse_mode=ParseMode.HTML
+            )
+            return
+        
+        await update.message.reply_text(
+            "🤖 এআই অ্যানালাইসিস চলছে...",
+            parse_mode=ParseMode.HTML
+        )
+        
+        try:
+            if self.has_full_premium and HAS_AI:
+                # Use advanced AI analytics
+                analysis = await self.ai_analytics.analyze_text_depth(text)
+                
+                # Format results
+                analysis_text = self._format_ai_analysis(analysis, user)
+                
+                await update.message.reply_text(
+                    analysis_text,
+                    parse_mode=ParseMode.HTML,
+                    disable_web_page_preview=True
+                )
+                
+                # Update stats
+                self.stats["ai_analyses"] += 1
+                
+                # Generate analysis report
+                await self._generate_ai_analysis_report(update, user, text, analysis)
+                
+            else:
+                # Fallback to basic analysis
+                await update.message.reply_text(
+                    "⚠️ এআই অ্যানালাইসিস বর্তমানে unavailable।",
+                    parse_mode=ParseMode.HTML
+                )
+                
+        except Exception as e:
+            logger.error(f"Error in AI analysis: {e}")
+            await update.message.reply_text(
+                "❌ অ্যানালাইসিসে সমস্যা!",
+                parse_mode=ParseMode.HTML
+            )
+    
+    def _format_ai_analysis(self, analysis: Dict, user: Any) -> str:
+        """Format AI analysis results"""
+        basic = analysis.get("basic_metrics", {})
+        sentiment = analysis.get("sentiment_analysis", {})
+        
+        return f"""
+🔍 <b>এআই টেক্সট অ্যানালাইসিস</b>
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+<b>📊 বেসিক মেট্রিক্স:</b>
+• শব্দ: {basic.get('word_count', 0):,}
+• বাক্য: {basic.get('sentence_count', 0):,}
+• অক্ষর: {basic.get('char_count', 0):,}
+• ইউনিক শব্দ: {basic.get('unique_words', 0):,}
+
+<b>😊 সেন্টিমেন্ট:</b>
+• Overall: {sentiment.get('overall_sentiment', {}).get('label', 'UNKNOWN')}
+• Score: {sentiment.get('overall_sentiment', {}).get('score', 0):.3f}
+• Confidence: {sentiment.get('overall_sentiment', {}).get('confidence', 0):.1%}
+
+<b>📈 রিডেবিলিটি:</b>
+• Level: {analysis.get('readability_scores', {}).get('reading_level', 'UNKNOWN')}
+
+<b>🎭 ইমোশনাল টোন:</b>
+• Dominant: {analysis.get('emotional_tone', {}).get('dominant_emotion', 'UNKNOWN').upper()}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+        """
+    
+    async def _generate_ai_analysis_report(self, update: Update, user: Any, 
+                                         text: str, analysis: Dict):
+        """Generate AI analysis report"""
+        try:
+            if self.has_full_premium:
+                user_info = {
+                    "id": user.id,
+                    "username": user.username,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name
+                }
+                
+                # Generate report
+                report_path = await self.report_generator.generate_pdf_report(
+                    analysis, user_info
+                )
+                
+                if report_path and os.path.exists(report_path):
+                    with open(report_path, 'rb') as report_file:
+                        await update.message.reply_document(
+                            document=report_file,
+                            filename=f"AI_Analysis_{user.id}.pdf",
+                            caption="📊 এআই অ্যানালাইসিস রিপোর্ট"
+                        )
+                    
+                    # Cleanup
+                    try:
+                        os.remove(report_path)
+                    except:
+                        pass
+                        
+        except Exception as e:
+            logger.error(f"Error generating AI report: {e}")
+    
+    async def theme_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /theme command - Change theme"""
+        user = update.effective_user
+        
+        themes = list(self.theme_manager.themes.keys())
+        
+        if not update.message.text or len(update.message.text.split()) < 2:
+            # Show available themes
+            theme_list = "\n".join([f"• {name}: {self.theme_manager.themes[name]['name']}" 
+                                   for name in themes])
+            
+            await update.message.reply_text(
+                f"""
+🎨 <b>প্রিমিয়াম থিমস</b>
+━━━━━━━━━━━━━━━━━━
+{theme_list}
+
+<b>ব্যবহার:</b> /theme <name>
+<b>উদাহরণ:</b> /theme neon
+━━━━━━━━━━━━━━━━━━
+                """,
+                parse_mode=ParseMode.HTML
+            )
+            return
+        
+        theme_name = update.message.text.split()[1].lower()
+        
+        if theme_name not in themes:
+            await update.message.reply_text(
+                f"❌ থিম '{theme_name}' পাওয়া যায়নি।\n"
+                f"Available: {', '.join(themes)}",
+                parse_mode=ParseMode.HTML
+            )
+            return
+        
+        # Set theme for user
+        self.theme_manager.current_theme = theme_name
+        
+        await update.message.reply_text(
+            f"✅ থিম পরিবর্তন করা হয়েছে: {self.theme_manager.themes[theme_name]['name']}",
+            parse_mode=ParseMode.HTML
+        )
+    
+    async def report_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /report command - Generate professional report"""
+        user = update.effective_user
+        
+        if not update.message.text or len(update.message.text.split()) < 2:
+            await update.message.reply_text(
+                "টেক্সট দিন রিপোর্টের জন্য: /report <your text>",
+                parse_mode=ParseMode.HTML
+            )
+            return
+        
+        text = ' '.join(update.message.text.split()[1:])
+        
+        await update.message.reply_text(
+            "📊 প্রফেশনাল রিপোর্ট তৈরি হচ্ছে...",
+            parse_mode=ParseMode.HTML
+        )
+        
+        try:
+            if self.has_full_premium:
+                # Get user info
+                user_info = {
+                    "id": user.id,
+                    "username": user.username,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name
+                }
+                
+                # Get roast data
+                roast_data = await self.roast_engine.generate_roast(text, user)
+                
+                # Generate reports
+                reports = []
+                
+                # PDF Report
+                pdf_report = await self.report_generator.generate_pdf_report(
+                    {"roast_data": roast_data, "text": text}, 
+                    user_info
+                )
+                if pdf_report:
+                    reports.append(pdf_report)
+                
+                # Dashboard Report
+                dashboard_report = await self.report_generator.generate_dashboard_report(
+                    {"roast_data": roast_data, "text": text}, 
+                    user_info
+                )
+                if dashboard_report:
+                    reports.append(dashboard_report)
+                
+                # Send reports
+                for report in reports:
+                    if os.path.exists(report):
+                        with open(report, 'rb') as report_file:
+                            filename = os.path.basename(report)
+                            await update.message.reply_document(
+                                document=report_file,
+                                filename=filename,
+                                caption="📈 প্রফেশনাল রিপোর্ট"
+                            )
+                
+                # Cleanup
+                for report in reports:
+                    try:
+                        os.remove(report)
+                    except:
+                        pass
+                
+                await update.message.reply_text(
+                    "✅ রিপোর্ট জেনারেশন সম্পূর্ণ!",
+                    parse_mode=ParseMode.HTML
+                )
+                
+            else:
+                await update.message.reply_text(
+                    "⚠️ রিপোর্ট ফিচার বর্তমানে unavailable।",
+                    parse_mode=ParseMode.HTML
+                )
+                
+        except Exception as e:
+            logger.error(f"Error generating report: {e}")
+            await update.message.reply_text(
+                "❌ রিপোর্ট তৈরি করতে সমস্যা!",
+                parse_mode=ParseMode.HTML
+            )
+    
+    # Override original methods with premium features
+    async def _generate_response(self, update: Update, context: ContextTypes.DEFAULT_TYPE,
+                                text: str, user: Any, chat: Any):
+        """Generate premium response"""
+        try:
+            # Generate typing action
+            await update.message.chat.send_action(action="upload_photo")
+            
+            # Get roast from engine
+            roast_data = await self.roast_engine.generate_roast(text, user)
+            
+            # Update stats
+            self.stats["roasts_generated"] += 1
+            self.stats["premium_roasts"] += 1
+            
+            # Get user data for badges
+            user_data = self.db.get_user_stats(user.id)
+            badges = self.badge_system.get_user_badges(user.id, user_data)
+            
+            # Generate premium image with theme
+            image_result = await self.image_gen.generate_premium_roast_image(
+                roast_data, 
+                user,
+                self.theme_manager.current_theme,
+                badges
+            )
+            
+            # Generate diagram
+            diagram_path = None
+            if CORE_RULES.get("diagram_reply", True):
+                diagram_path = await self.diagram_gen.generate_diagram_async(
+                    text, 
+                    roast_data.get("roast_type", "funny")
+                )
+            
+            # Send responses
+            if image_result.success and image_result.image_path:
+                # Send image
+                with open(image_result.image_path, 'rb') as photo:
+                    caption = f"💎 {roast_data.get('caption', 'প্রিমিয়াম রোস্ট! 🔥')}"
+                    sent_message = await update.message.reply_photo(
+                        photo=photo,
+                        caption=caption,
+                        parse_mode=ParseMode.HTML
+                    )
+                
+                # Update cache stats
+                if image_result.cache_hit:
+                    self.stats["cache_hits"] += 1
+                else:
+                    self.stats["cache_misses"] += 1
+                
                 # Cleanup
                 try:
                     os.remove(image_result.image_path)
                 except:
                     pass
-            else:
+                
+                self.stats["images_created"] += 1
+                
+                # Add premium voting buttons
+                try:
+                    await self.voting_system.add_voting_buttons(sent_message, user, None, premium=True)
+                except:
+                    pass
+            
+            # Send diagram
+            if diagram_path and os.path.exists(diagram_path):
+                with open(diagram_path, 'rb') as photo:
+                    await update.message.reply_photo(
+                        photo=photo,
+                        caption="📊 প্রিমিয়াম অ্যানালাইসিস ডায়াগ্রাম",
+                        parse_mode=ParseMode.HTML
+                    )
+                
+                # Cleanup
+                try:
+                    os.remove(diagram_path)
+                except:
+                    pass
+                
+                self.stats["diagrams_created"] += 1
+            
+            # Send text reply if enabled
+            if CORE_RULES.get("text_reply", True) and roast_data.get("primary_roast"):
+                premium_text = f"💎 {roast_data.get('primary_roast')}"
                 await update.message.reply_text(
-                    f"❌ NFT minting failed: {nft_result['message']}",
+                    premium_text,
                     parse_mode=ParseMode.HTML
                 )
-        else:
+            
+        except Exception as e:
+            logger.error(f"Error generating premium response: {e}")
+            logger.error(f"Traceback:\n{traceback.format_exc()}")
+            
             await update.message.reply_text(
-                "❌ Could not generate roast image for NFT",
+                f"💎 {text}\n\n- প্রিমিয়াম {user.first_name}",
                 parse_mode=ParseMode.HTML
             )
     
-    async def _show_dashboard(self, update: Update, user: Any):
-        """Show dashboard access information"""
-        dashboard_text = f"""
-📊 <b>ENTERPRISE DASHBOARD ACCESS</b>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /help command - PREMIUM VERSION"""
+        help_text = f"""
+<b>{self.bot_name} v15.0 - {self.bot_tagline}</b>
 
-<b>Real-time Analytics Dashboard:</b>
-🌐 <a href="http://localhost:8050">http://localhost:8050</a>
+💎 <b>প্রিমিয়াম বৈশিষ্ট্য:</b>
+• এআই-পাওয়ারড টেক্সট অ্যানালাইসিস
+• প্রিমিয়াম থিমড ইমেজ জেনারেশন
+• ইউজার ইনফরমেশন কার্ডস
+• অ্যাডভান্সড ড্যাশবোর্ড
+• ব্লকচেইন ইন্টিগ্রেশন
+• প্রফেশনাল রিপোর্টিং
 
-<b>REST API Endpoints:</b>
-🔧 <a href="http://localhost:8000">http://localhost:8000</a>
-📖 <a href="http://localhost:8000/docs">API Documentation</a>
+🚀 <b>ব্যবহার পদ্ধতি:</b>
+• যেকোনো টেক্সট পাঠান (সর্বনিম্ন ৪ অক্ষর)
+• আমি প্রিমিয়াম ইমেজ + ডায়াগ্রাম + অ্যানালাইসিস দেব
 
-<b>Available Features:</b>
-✅ Real-time metrics monitoring
-✅ Interactive data visualization
-✅ Custom report generation
-✅ User analytics
-✅ System health monitoring
-✅ API access for integration
+🎯 <b>নতুন কমান্ড:</b>
+/profile - আপনার প্রিমিয়াম প্রোফাইল
+/analyze - এআই টেক্সট অ্যানালাইসিস
+/report - প্রফেশনাল রিপোর্ট
+/stats - ডিটেইল্ড স্ট্যাটিস্টিকস
+/theme - থিম পরিবর্তন করুন
+/leaderboard - প্রিমিয়াম লিডারবোর্ড
 
-<b>Your Access:</b>
-• User ID: <code>{user.id}</code>
-• Username: {user.username or 'Not set'}
-• Access Level: Premium
-• API Rate Limit: 1000 requests/hour
+🔧 <b>মূল কমান্ড:</b>
+/start - শুরু করুন
+/help - সাহায্য
+/health - সিস্টেম স্বাস্থ্য
 
-<b>API Usage Example:</b>
-<code>curl -X POST http://localhost:8000/analyze \\
-  -d "text=Your roast text here"</code>
+⚡ <b>টিপস:</b>
+• থিম পরিবর্তন করে নতুন লুক পান
+• প্রফাইল চেক করে ব্যাজেস দেখুন
+• রিপোর্ট জেনারেট করে শেয়ার করুন
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>Note: Dashboard URLs are examples. Configure in production.</i>
+🔒 <b>প্রিমিয়াম সিকিউরিটি:</b>
+• এন্ড-টু-এন্ড এনক্রিপশন
+• রেট লিমিটিং
+• সিকিউরিটি অডিট লগিং
+
+📊 <b>স্ট্যাটাস:</b>
+✅ All Systems Operational
+💎 Premium Features Active
+⚡ Ultra Fast Response
         """
         
         await update.message.reply_text(
-            dashboard_text,
+            help_text, 
             parse_mode=ParseMode.HTML,
             disable_web_page_preview=True
         )
     
-    async def _show_security_info(self, update: Update, user: Any):
-        """Show security information"""
-        # Generate 2FA code
-        two_fa_code = self.security.generate_2fa_code(user.id)
+    async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /stats command - PREMIUM VERSION"""
+        user = update.effective_user
         
-        # Generate JWT token
-        jwt_token = self.security.generate_jwt_token(user.id, user.username or str(user.id))
+        try:
+            # Check if admin
+            admin_ids = OWNER_ADMIN_PROTECTION.get("admin_user_ids", [])
+            owner_id = OWNER_ADMIN_PROTECTION.get("bot_owner_user_id")
+            
+            if user.id not in admin_ids and user.id != owner_id:
+                await update.message.reply_text(
+                    "❌ এই কমান্ড শুধুমাত্র অ্যাডমিনদের জন্য!",
+                    parse_mode=ParseMode.HTML
+                )
+                return
+        except:
+            pass
         
-        security_text = f"""
-🔒 <b>SECURITY INFORMATION</b>
+        # Calculate uptime
+        uptime = datetime.now() - self.stats["start_time"]
+        hours, remainder = divmod(int(uptime.total_seconds()), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        days, hours = divmod(hours, 24)
+        
+        # Get premium stats
+        img_stats = self.image_gen.get_stats()
+        
+        stats_text = f"""
+<b>{self.bot_name} প্রিমিয়াম পরিসংখ্যান v15.0</b>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⏰ <b>আপটাইম:</b> {days}দিন {hours}ঘণ্টা {minutes}মিনিট
+📊 <b>বার্তা প্রসেসড:</b> {self.stats['messages_processed']:,}
+💎 <b>প্রিমিয়াম রোস্ট:</b> {self.stats['premium_roasts']:,}
+🔥 <b>মোট রোস্ট:</b> {self.stats['roasts_generated']:,}
+🖼️ <b>ইমেজ তৈরি:</b> {self.stats['images_created']:,}
+📈 <b>ডায়াগ্রাম তৈরি:</b> {self.stats['diagrams_created']:,}
+👥 <b>ইউজার:</b> {len(self.stats['users_interacted']):,}
+💎 <b>প্রিমিয়াম ইউজার:</b> {len(self.stats['premium_users']):,}
+🏠 <b>গ্রুপ:</b> {len(self.stats['groups_managed']):,}
+📊 <b>ইউজার কার্ড:</b> {self.stats['user_info_cards']:,}
+🤖 <b>এআই অ্যানালাইসিস:</b> {self.stats['ai_analyses']:,}
 
-<b>Your Security Status:</b>
-✅ Account protected with encryption
-✅ Rate limiting active
-✅ Audit logging enabled
-✅ Premium security features active
+<b>ইমেজ জেনারেশন:</b>
+✅ <b>সাকসেস রেট:</b> {img_stats['performance']['success_rate']}%
+⚡ <b>অ্যাভারেজ টাইম:</b> {img_stats['performance']['average_time_seconds']:.2f}s
+💾 <b>ক্যাশে হিট রেট:</b> {img_stats['performance']['cache_hit_rate']}%
+🔄 <b>ক্যাশে আইটেম:</b> {img_stats['cache']['total_items']:,}
+🎨 <b>থিমস:</b> {img_stats.get('themes_available', 5)}
 
-<b>Two-Factor Authentication:</b>
-📱 Current 2FA Code: <code>{two_fa_code}</code>
-⏱️ Valid for: 30 seconds
-
-<b>API Authentication Token:</b>
-🔑 JWT Token: <code>{jwt_token[:50]}...</code>
-📅 Expires: 24 hours from now
-
-<b>Security Features Active:</b>
-• End-to-end encryption for all data
-• RSA public/private key encryption
-• HMAC-based request verification
-• SQL injection protection
-• XSS attack prevention
-• DDoS mitigation
-• Real-time threat detection
-
-<b>Recent Security Audit:</b>
-• Last scan: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-• Threats detected: 0
-• Vulnerabilities: 0
-• Security score: 98/100
-
-<b>Security Commands:</b>
-/security - Show this information
-/token - Generate new API token
-/2fa - Enable/disable 2FA
-/audit - View security audit log
-
+<b>প্রিমিয়াম স্ট্যাটাস:</b> ✅ ACTIVE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-<i>Keep your tokens secure! Do not share with anyone.</i>
         """
         
         await update.message.reply_text(
-            security_text,
+            stats_text, 
             parse_mode=ParseMode.HTML,
             disable_web_page_preview=True
         )
     
     def setup_handlers(self, application):
-        """Setup premium handlers"""
-        # Call parent setup
-        super().setup_handlers(application)
+        """Setup all bot handlers - PREMIUM VERSION"""
+        # Premium command handlers
+        application.add_handler(CommandHandler("profile", self.profile_command))
+        application.add_handler(CommandHandler("analyze", self.analyze_command))
+        application.add_handler(CommandHandler("report", self.report_command))
+        application.add_handler(CommandHandler("theme", self.theme_command))
         
-        # Add premium command handlers
-        premium_commands = ["premium", "analyze", "report", "nft", "dashboard", "security"]
+        # Original command handlers
+        application.add_handler(CommandHandler("start", self.start))
+        application.add_handler(CommandHandler("help", self.help_command))
+        application.add_handler(CommandHandler("stats", self.stats_command))
+        application.add_handler(CommandHandler("health", self.health_command))
+        application.add_handler(CommandHandler("leaderboard", self.handle_leaderboard_command))
         
-        for command in premium_commands:
-            application.add_handler(CommandHandler(command, self.handle_premium_command))
+        # Message handlers
+        application.add_handler(MessageHandler(
+            filters.TEXT & ~filters.COMMAND, self.handle_message
+        ))
+        
+        # New chat members
+        application.add_handler(MessageHandler(
+            filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_chat_members
+        ))
+        
+        # Callback queries
+        application.add_handler(CallbackQueryHandler(
+            self.handle_vote_callback, pattern="^vote_"
+        ))
+        
+        # Error handler
+        application.add_error_handler(self.error_handler)
         
         logger.info("Premium handlers setup complete")
+    
+    async def post_init(self, application):
+        """Run after bot initialization - PREMIUM VERSION"""
+        logger.info(f"{self.bot_name} প্রিমিয়াম বট চালু হচ্ছে v15.0...")
+        
+        # Initialize auto daily quote
+        try:
+            self.auto_daily_quote = AutoDailyQuote(application.job_queue)
+            logger.info("Auto Daily Quote initialized")
+        except Exception as e:
+            logger.error(f"Auto Daily Quote init failed: {e}")
+            self.auto_daily_quote = None
+        
+        # Start enterprise dashboard if available
+        if self.has_full_premium:
+            try:
+                self.enterprise_dashboard.run_dashboard()
+                self.enterprise_dashboard.run_api()
+                logger.info("Enterprise Dashboard started")
+            except Exception as e:
+                logger.error(f"Dashboard start failed: {e}")
+        
+        # Start background tasks
+        asyncio.create_task(self._premium_background_tasks())
+        
+        # Send premium startup notification
+        await self._send_premium_startup_notification()
+        
+        logger.info("Premium bot startup complete")
+    
+    async def _premium_background_tasks(self):
+        """Run premium background maintenance tasks"""
+        while True:
+            try:
+                # Premium cleanup
+                self.db.cleanup_old_data(days=30)  # Keep data longer
+                
+                # Cleanup premium temp files
+                self._cleanup_premium_temp_files()
+                
+                # Update premium user analytics
+                await self._update_premium_analytics()
+                
+                # Log premium statistics
+                logger.info(f"Premium Stats: {self.stats['premium_roasts']} premium roasts, "
+                           f"{len(self.stats['premium_users'])} premium users")
+                
+                # Sleep for 30 minutes
+                await asyncio.sleep(1800)
+                
+            except Exception as e:
+                logger.error(f"Error in premium background tasks: {e}")
+                await asyncio.sleep(300)
+    
+    async def _update_premium_analytics(self):
+        """Update premium user analytics"""
+        try:
+            # This would typically update user analytics in the database
+            pass
+        except Exception as e:
+            logger.error(f"Error updating premium analytics: {e}")
+    
+    def _cleanup_premium_temp_files(self):
+        """Cleanup premium temporary files"""
+        try:
+            temp_dir = Path("temp/premium")
+            if temp_dir.exists():
+                cutoff_time = time.time() - 7200  # 2 hours ago for premium
+                
+                for file in temp_dir.glob("*"):
+                    if file.is_file():
+                        try:
+                            if file.stat().st_mtime < cutoff_time:
+                                file.unlink()
+                        except:
+                            pass
+        except Exception as e:
+            logger.error(f"Premium temp cleanup error: {e}")
+    
+    async def _send_premium_startup_notification(self):
+        """Send premium startup notification to owner"""
+        try:
+            owner_id = OWNER_ADMIN_PROTECTION.get("bot_owner_user_id")
+            
+            if owner_id:
+                bot_info = await self.application.bot.get_me()
+                startup_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                # Get system health
+                health = self.image_gen.health_check()
+                
+                message = f"""
+🚀 <b>{self.bot_name} PREMIUM Started Successfully v15.0!</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⏰ <b>Start Time:</b> {startup_time}
+🤖 <b>Bot Username:</b> @{bot_info.username}
+📊 <b>Version:</b> 15.0.0 PREMIUM
+💎 <b>Edition:</b> Ultimate Premium
+🏥 <b>Health:</b> {"✅ Healthy" if health['healthy'] else "⚠️ Issues"}
+
+<b>Premium Features:</b>
+• Advanced AI Analytics ✅
+• User Information Cards ✅
+• Enterprise Dashboard ✅
+• Blockchain Integration ✅
+• Professional Reports ✅
+• Premium Themes ✅
+• Badge System ✅
+
+<b>Statistics:</b>
+• Premium Users: {len(self.stats['premium_users'])}
+• Premium Roasts: {self.stats['premium_roasts']}
+• AI Analyses: {self.stats['ai_analyses']}
+
+✅ <b>Status:</b> ALL PREMIUM SYSTEMS OPERATIONAL
+🔥 <b>Ready for ultimate roasting experience!</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                """
+                
+                await self.application.bot.send_message(
+                    chat_id=owner_id,
+                    text=message,
+                    parse_mode=ParseMode.HTML
+                )
+                
+                logger.info("Premium startup notification sent to owner")
+        except Exception as e:
+            logger.error(f"Error sending premium startup notification: {e}")
+    
+    # Keep original methods for compatibility
+    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle all text messages - PREMIUM VERSION"""
+        try:
+            # Update statistics
+            self.stats["messages_processed"] += 1
+            
+            user = update.effective_user
+            chat = update.effective_chat
+            message = update.message
+            
+            if not message or not message.text:
+                return
+            
+            text = message.text.strip()
+            
+            # Add user to interacted set
+            self.stats["users_interacted"].add(user.id)
+            
+            # Add group to managed set
+            if chat.type in ["group", "supergroup"]:
+                self.stats["groups_managed"].add(chat.id)
+            
+            # Check cooldown
+            if not self._check_cooldown(user.id):
+                if chat.type == "private":
+                    await message.reply_text(
+                        "⏳ একটু অপেক্ষা করুন! খুব দ্রুত রিকোয়েস্ট করছেন।",
+                        parse_mode=ParseMode.HTML
+                    )
+                return
+            
+            # Check minimum length
+            if len(text) < CORE_RULES.get("minimum_input_length", 4):
+                if len(text) > 0:
+                    await message.reply_text(
+                        f"একটু লম্বা লিখুন! কমপক্ষে {CORE_RULES.get('minimum_input_length', 4)} অক্ষর প্রয়োজন।",
+                        parse_mode=ParseMode.HTML
+                    )
+                return
+            
+            # Check ignore conditions
+            if self._should_ignore_message(text):
+                return
+            
+            # Check for admin protection
+            try:
+                if await self.admin_protection.check_protection_needed(user, text, chat):
+                    await self.admin_protection.handle_protected_response(
+                        update, context, user, text
+                    )
+                    return
+            except Exception as e:
+                logger.error(f"Admin protection error: {e}")
+            
+            # Check for mentions in groups
+            if chat.type in ["group", "supergroup"]:
+                try:
+                    mention_result = await self.mention_roast.process_mention(
+                        message, text, user, chat
+                    )
+                    if mention_result:
+                        await self._generate_mention_response(
+                            update, context, text, user, chat, mention_result
+                        )
+                        return
+                except Exception as e:
+                    logger.error(f"Error processing mention: {e}")
+            
+            # Generate premium response
+            await self._generate_response(update, context, text, user, chat)
+            
+            # Auto reactions
+            try:
+                await self.reaction_system.add_auto_reactions(message, text, user, chat)
+            except Exception as e:
+                logger.error(f"Auto reaction error: {e}")
+            
+        except Exception as e:
+            logger.error(f"Error handling message: {e}")
+            logger.error(f"Traceback:\n{traceback.format_exc()}")
+            
+            if update.message:
+                await update.message.reply_text(
+                    "⚠️ সমস্যা হয়েছে! আবার চেষ্টা করুন।",
+                    parse_mode=ParseMode.HTML
+                )
+    
+    async def handle_vote_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle vote callback queries"""
+        try:
+            await self.voting_system.handle_vote_callback(update, context)
+        except Exception as e:
+            logger.error(f"Error handling vote callback: {e}")
+            await update.callback_query.answer("ভোট প্রসেসে সমস্যা!", show_alert=True)
+    
+    async def handle_new_chat_members(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle new chat members"""
+        try:
+            await self.welcome_system.handle_new_members(update, context)
+        except Exception as e:
+            logger.error(f"Error handling new chat members: {e}")
+    
+    async def handle_leaderboard_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /leaderboard command"""
+        try:
+            await self.leaderboard.handle_leaderboard_command(update, context)
+        except Exception as e:
+            logger.error(f"Error handling leaderboard: {e}")
+            await update.message.reply_text(
+                "লিডারবোর্ড লোড করতে সমস্যা!",
+                parse_mode=ParseMode.HTML
+            )
+    
+    async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
+        """Handle errors"""
+        logger.error(f"Exception while handling update: {context.error}")
+        traceback_str = traceback.format_exc()
+        logger.error(f"Traceback:\n{traceback_str}")
+        
+        # Try to send error to admin
+        try:
+            owner_id = OWNER_ADMIN_PROTECTION.get("bot_owner_user_id")
+            if owner_id and context.bot:
+                error_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                error_msg = str(context.error)[:500]
+                
+                error_text = f"""
+🚨 <b>প্রিমিয়াম বট এরর!</b>
+━━━━━━━━━━━━━━━━━━━━
+⏰ <b>সময়:</b> {error_time}
+💥 <b>এরর:</b> {error_msg}
+💎 <b>এডিশন:</b> Premium v15.0
+━━━━━━━━━━━━━━━━━━━━
+<b>অ্যাকশন:</b> চেক প্রিমিয়াম লগ ফাইল
+                """
+                
+                await context.bot.send_message(
+                    chat_id=owner_id,
+                    text=error_text,
+                    parse_mode=ParseMode.HTML
+                )
+        except:
+            pass
+    
+    def _should_ignore_message(self, text: str) -> bool:
+        """Check if message should be ignored"""
+        # Same as original but can be extended for premium
+        # Check for only emojis
+        emoji_pattern = re.compile("["
+            u"\U0001F600-\U0001F64F"  # emoticons
+            u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+            u"\U0001F680-\U0001F6FF"  # transport & map symbols
+            u"\U0001F1E0-\U0001F1FF"  # flags
+            u"\U00002500-\U00002BEF"
+            u"\U00002702-\U000027B0"
+            u"\U000024C2-\U0001F251"
+            u"\U0001f926-\U0001f937"
+            u"\U00010000-\U0010ffff"
+            u"\u2640-\u2642"
+            u"\u2600-\u2B55"
+            u"\u200d"
+            u"\u23cf"
+            u"\u23e9"
+            u"\u231a"
+            u"\ufe0f"
+            u"\u3030"
+            "]+", flags=re.UNICODE)
+        
+        if emoji_pattern.sub('', text).strip() == '':
+            return True
+        
+        # Check for only numbers
+        if text.strip().isdigit():
+            return True
+        
+        # Check for links only
+        url_pattern = re.compile(r'https?://\S+|www\.\S+')
+        if url_pattern.sub('', text).strip() == '':
+            return True
+        
+        # Check for very repetitive text
+        if len(text) > 20:
+            if text.count(text[0]) / len(text) > 0.8:
+                return True
+        
+        return False
+    
+    async def _generate_mention_response(self, update: Update, context: ContextTypes.DEFAULT_TYPE,
+                                        text: str, user: Any, chat: Any, mention_result: Dict):
+        """Generate response for mentioned user - PREMIUM VERSION"""
+        try:
+            target_user = mention_result.get("target")
+            roast_text = mention_result.get("roast_text", text)
+            
+            # Generate typing action
+            await update.message.chat.send_action(action="upload_photo")
+            
+            # Get roast from engine
+            roast_data = await self.roast_engine.generate_roast(
+                roast_text, user, target_user
+            )
+            
+            # Update stats
+            self.stats["roasts_generated"] += 1
+            self.stats["premium_roasts"] += 1
+            
+            # Get user data for badges
+            user_data = self.db.get_user_stats(user.id)
+            badges = self.badge_system.get_user_badges(user.id, user_data)
+            
+            # Generate premium image
+            image_result = await self.image_gen.generate_premium_roast_image(
+                roast_data, 
+                user,
+                self.theme_manager.current_theme,
+                badges
+            )
+            
+            # Generate diagram
+            diagram_path = None
+            if CORE_RULES.get("diagram_reply", True):
+                diagram_path = await self.diagram_gen.generate_diagram_async(
+                    roast_text, 
+                    roast_data.get("roast_type", "funny")
+                )
+            
+            # Send responses
+            if image_result.success and image_result.image_path:
+                # Send image
+                with open(image_result.image_path, 'rb') as photo:
+                    caption = f"💎 {roast_data.get('caption', f'{target_user.first_name} -কে প্রিমিয়াম রোস্ট!')}"
+                    sent_message = await update.message.reply_photo(
+                        photo=photo,
+                        caption=caption,
+                        parse_mode=ParseMode.HTML
+                    )
+                
+                # Update cache stats
+                if image_result.cache_hit:
+                    self.stats["cache_hits"] += 1
+                else:
+                    self.stats["cache_misses"] += 1
+                
+                # Cleanup
+                try:
+                    os.remove(image_result.image_path)
+                except:
+                    pass
+                
+                self.stats["images_created"] += 1
+                
+                # Add voting buttons
+                try:
+                    await self.voting_system.add_voting_buttons(sent_message, user, target_user, premium=True)
+                except:
+                    pass
+            
+            # Send diagram
+            if diagram_path and os.path.exists(diagram_path):
+                with open(diagram_path, 'rb') as photo:
+                    await update.message.reply_photo(
+                        photo=photo,
+                        caption="📊 প্রিমিয়াম অ্যানালাইসিস ডায়াগ্রাম",
+                        parse_mode=ParseMode.HTML
+                    )
+                
+                # Cleanup
+                try:
+                    os.remove(diagram_path)
+                except:
+                    pass
+                
+                self.stats["diagrams_created"] += 1
+            
+            # Send text reply if enabled
+            if CORE_RULES.get("text_reply", True) and roast_data.get("primary_roast"):
+                premium_text = f"💎 {roast_data.get('primary_roast')}"
+                await update.message.reply_text(
+                    premium_text,
+                    parse_mode=ParseMode.HTML
+                )
+            
+        except Exception as e:
+            logger.error(f"Error generating premium mention response: {e}")
+            logger.error(f"Traceback:\n{traceback.format_exc()}")
+            
+            await update.message.reply_text(
+                f"💎 {mention_result.get('target_name', 'User')} -কে প্রিমিয়াম রোস্ট! 🔥",
+                parse_mode=ParseMode.HTML
+            )
+    
+    def run(self):
+        """Run the bot - PREMIUM VERSION"""
+        try:
+            # Create application
+            self.application = ApplicationBuilder()\
+                .token(self.bot_token)\
+                .post_init(self.post_init)\
+                .build()
+            
+            # Setup handlers
+            self.setup_handlers(self.application)
+            
+            # Run bot
+            logger.info(f"Starting {self.bot_name} PREMIUM bot v15.0...")
+            self.application.run_polling(
+                allowed_updates=Update.ALL_TYPES,
+                drop_pending_updates=True
+            )
+            
+        except KeyboardInterrupt:
+            logger.info("Premium bot stopped by user")
+            
+            # Cleanup
+            try:
+                self.image_gen.cleanup()
+            except:
+                pass
+            
+        except Exception as e:
+            logger.error(f"Fatal error running premium bot: {e}")
+            traceback_str = traceback.format_exc()
+            logger.error(f"Traceback:\n{traceback_str}")
+            
+            # Cleanup
+            try:
+                self.image_gen.cleanup()
+            except:
+                pass
+            
+            raise
+
+
+def create_premium_directories():
+    """Create necessary directories for premium"""
+    directories = [
+        "assets/premium/fonts",
+        "assets/premium/borders",
+        "assets/premium/templates",
+        "assets/premium/backgrounds",
+        "assets/premium/badges",
+        "output/premium",
+        "temp/premium",
+        "cache/premium",
+        "backup/premium",
+        "logs/premium",
+        "data/premium",
+        "premium",
+        "reports"
+    ]
+    
+    for directory in directories:
+        os.makedirs(directory, exist_ok=True)
+        logger.debug(f"Created premium directory: {directory}")
 
 
 def main():
-    """Main entry point"""
-    # Create directories
-    create_directories()
+    """Main entry point - PREMIUM VERSION"""
+    # Create premium directories
+    create_premium_directories()
     
-    # Create premium bot
+    # Check for required AI packages
+    if not HAS_AI:
+        logger.warning("AI packages not installed. Install: pip install numpy nltk textblob spacy")
+    
+    # Check for premium modules
+    if not HAS_PREMIUM:
+        logger.warning("Premium modules not found. Some features will be disabled.")
+        logger.info("Creating premium modules...")
+        # We'll create these in the next step
+    
+    # Run premium bot
     bot = PremiumRoastifyBot()
-    
-    try:
-        # Run bot
-        bot.run()
-    except KeyboardInterrupt:
-        logger.info("Premium bot stopped by user")
-    except Exception as e:
-        logger.error(f"Fatal error: {e}")
-        traceback_str = traceback.format_exc()
-        logger.error(f"Traceback:\n{traceback_str}")
+    bot.run()
 
 
 if __name__ == "__main__":
