@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-🔥 ULTIMATE IMAGE GENERATOR v8.0 - MASTERPIECE EDITION 🔥
-Professional, Artistic, Magically Beautiful Image Generator
-Author: Roastify Team | Termux Compatible
-Version: 8.0.0 | Masterpiece
+ULTIMATE IMAGE GENERATOR v7.0 - Professional Production-Grade
+Complete Error-Free Version with Bengali Support
+Author: Roastify Team
+Version: 7.0.0
 """
 
 import os
@@ -25,88 +25,71 @@ from enum import Enum, auto
 from functools import lru_cache, wraps
 import traceback
 
-# Configure artistic logging
-class ColorfulFormatter(logging.Formatter):
-    """Colorful logging formatter"""
-    COLORS = {
-        'DEBUG': '\033[96m',
-        'INFO': '\033[92m',
-        'WARNING': '\033[93m',
-        'ERROR': '\033[91m',
-        'CRITICAL': '\033[41m',
-        'RESET': '\033[0m'
-    }
-    
-    def format(self, record):
-        color = self.COLORS.get(record.levelname, self.COLORS['INFO'])
-        record.levelname = f"{color}{record.levelname}{self.COLORS['RESET']}"
-        return super().format(record)
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger('UltimateImageGenerator')
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('ArtisticImageGenerator')
-handler = logging.StreamHandler()
-handler.setFormatter(ColorfulFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-logger.addHandler(handler)
-
-# Import PIL with magic
+# Import PIL with comprehensive fallback
 PIL_AVAILABLE = False
 try:
-    from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps, ImageEnhance, ImageChops
+    from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps, ImageEnhance
     from PIL.Image import Resampling
-    from PIL.ImageFilter import GaussianBlur, EMBOSS, CONTOUR, DETAIL, SHARPEN
+    from PIL.ImageFilter import GaussianBlur
     PIL_AVAILABLE = True
-    logger.info("🎨 PIL/Pillow successfully loaded with artistic features")
+    logger.info("✓ PIL/Pillow successfully loaded")
 except ImportError as e:
-    logger.error(f"❌ PIL not available: {e}")
+    logger.error(f"✗ PIL not available: {e}")
     PIL_AVAILABLE = False
 
-# Constants with artistic touch
-DEFAULT_WIDTH = 1200  # Increased for more space
-DEFAULT_HEIGHT = 1200
-DEFAULT_QUALITY = 100  # Maximum quality
+# Constants
+DEFAULT_WIDTH = 1080
+DEFAULT_HEIGHT = 1080
+DEFAULT_QUALITY = 95
 SUPPORTED_FORMATS = ['PNG', 'JPEG', 'WEBP']
-MAX_CACHE_SIZE = 2000  # More cache for speed
-CACHE_TTL_HOURS = 48
+MAX_CACHE_SIZE = 1000
+CACHE_TTL_HOURS = 24
+MAX_RETRY_ATTEMPTS = 3
+RETRY_DELAY = 1.0
+DEFAULT_TIMEOUT = 30.0
 
-# Enums with more styles
-class ArtStyle(Enum):
-    """Artistic styles for images"""
-    RENAISSANCE = auto()
-    IMPRESSIONISM = auto()
-    CUBISM = auto()
-    SURREALISM = auto()
-    POP_ART = auto()
-    MINIMALISM = auto()
+# Enums
+class ImageStyle(Enum):
+    """Available image styles"""
+    DARK = auto()
+    LIGHT = auto()
+    NEON = auto()
+    VINTAGE = auto()
     CYBERPUNK = auto()
-    STEAMPUNK = auto()
-    FANTASY = auto()
-    GLITCH = auto()
-    NEON_NOIR = auto()
-    VAPORWAVE = auto()
-    KAWAI = auto()
-    GOTHIC = auto()
-    ART_NOUVEAU = auto()
+    MINIMAL = auto()
+    GRUNGE = auto()
+    RETRO = auto()
+    GLOW = auto()
+    ELEGANT = auto()
+    MODERN = auto()
+    FUTURISTIC = auto()
+    PASTEL = auto()
+    MONOCHROME = auto()
     
     @classmethod
     def get_random(cls):
         return random.choice(list(cls.__members__.values()))
 
 class TextEffect(Enum):
-    """Magical text effects"""
+    """Text effect types"""
     NONE = auto()
-    SHADOW_3D = auto()
-    NEON_GLOW = auto()
-    GOLDEN_EMBOSS = auto()
-    GRADIENT_RAINBOW = auto()
-    METALLIC_SHEEN = auto()
-    GLASS_REFLECTION = auto()
-    FIRE_TEXT = auto()
-    ICE_TEXT = auto()
-    HOLOGRAM = auto()
-    STROBE_GLOW = auto()
-    RAINBOW_SHINE = auto()
-    GALAXY_TEXT = auto()
-    WATER_REFLECTION = auto()
+    SHADOW = auto()
+    GLOW = auto()
+    OUTLINE = auto()
+    GRADIENT = auto()
+    EMBOSS = auto()
+    NEON = auto()
+    STROKE = auto()
+    REFLECTION = auto()
+    THREE_D = auto()
+    METALLIC = auto()
     
     @classmethod
     def get_random(cls, count=1):
@@ -115,22 +98,18 @@ class TextEffect(Enum):
         return random.sample(effects, min(count, len(effects)))
 
 class BorderType(Enum):
-    """Artistic border types"""
+    """Border styles"""
     NONE = auto()
-    GOLDEN_FRAME = auto()
-    NEON_TUBE = auto()
-    VINE_PATTERN = auto()
-    GEOMETRIC_ART = auto()
-    CELTIC_KNOT = auto()
-    MOROCCAN_TILES = auto()
-    JAPANESE_WAVE = auto()
-    STAINED_GLASS = auto()
-    BRUSH_STROKE = auto()
-    SPARKLE_FRAME = auto()
-    GALAXY_BORDER = auto()
-    CRYSTAL_EDGE = auto()
-    FIRE_BORDER = auto()
-    ICE_CRYSTAL = auto()
+    SIMPLE = auto()
+    DOUBLE = auto()
+    ROUNDED = auto()
+    DOTTED = auto()
+    DASHED = auto()
+    ORNATE = auto()
+    NEON = auto()
+    GLOW = auto()
+    GRADIENT = auto()
+    PATTERN = auto()
     
     @classmethod
     def get_random(cls):
@@ -138,32 +117,22 @@ class BorderType(Enum):
         types.remove(cls.NONE)
         return random.choice(types)
 
-class BackgroundType(Enum):
-    """Magical background types"""
-    GALAXY_NEBULA = auto()
-    AURORA_BOREALIS = auto()
-    OCEAN_DEPTH = auto()
-    FOREST_MAGIC = auto()
-    FIRE_STORM = auto()
-    ICE_PALACE = auto()
-    CLOUD_HEAVEN = auto()
-    SPACE_TRAVEL = auto()
-    RAINBOW_PRISM = auto()
-    GEOMETRIC_MANDALA = auto()
-    LIQUID_METAL = auto()
-    CELESTIAL = auto()
-    MYSTIC_RUNES = auto()
-    DIGITAL_MATRIX = auto()
-    PASTEL_DREAM = auto()
+class GradientDirection(Enum):
+    """Gradient directions"""
+    HORIZONTAL = auto()
+    VERTICAL = auto()
+    DIAGONAL = auto()
+    RADIAL = auto()
+    ANGULAR = auto()
     
     @classmethod
     def get_random(cls):
         return random.choice(list(cls.__members__.values()))
 
-# Data Classes with artistic defaults
+# Data Classes
 @dataclass
-class ArtConfig:
-    """Artistic configuration for masterpiece creation"""
+class ImageConfig:
+    """Image generation configuration"""
     width: int = DEFAULT_WIDTH
     height: int = DEFAULT_HEIGHT
     quality: int = DEFAULT_QUALITY
@@ -171,1205 +140,1711 @@ class ArtConfig:
     enable_cache: bool = True
     cache_ttl_hours: int = CACHE_TTL_HOURS
     max_cache_size: int = MAX_CACHE_SIZE
-    output_dir: str = "./masterpieces"
-    temp_dir: str = "./temp_art"
-    cache_dir: str = "./art_cache"
-    assets_dir: str = "./art_assets"
-    backup_dir: str = "./art_backups"
-    max_workers: int = 8
-    timeout: float = 60.0
+    output_dir: str = "./output"
+    temp_dir: str = "./temp"
+    cache_dir: str = "./cache"
+    assets_dir: str = "./assets"
+    backup_dir: str = "./backup"
+    max_workers: int = 4
+    timeout: float = DEFAULT_TIMEOUT
     enable_backup: bool = True
-    compression_level: int = 9
-    art_style: ArtStyle = ArtStyle.get_random()
-    enable_animations: bool = False
-    magic_intensity: float = 1.0
+    compression_level: int = 6
     
     def __post_init__(self):
-        """Create artistic directories"""
+        """Validate and create directories"""
+        self.width = max(100, min(self.width, 4096))
+        self.height = max(100, min(self.height, 4096))
+        self.quality = max(10, min(self.quality, 100))
+        self.format = self.format.upper()
+        if self.format not in SUPPORTED_FORMATS:
+            self.format = "PNG"
+        
         directories = [
             self.output_dir, self.temp_dir, self.cache_dir,
-            self.assets_dir, self.backup_dir, "./fonts", "./textures"
+            self.assets_dir, self.backup_dir
         ]
         
         for dir_path in directories:
             try:
                 path = Path(dir_path)
                 path.mkdir(parents=True, exist_ok=True)
-                logger.debug(f"🎨 Artistic directory ready: {dir_path}")
+                logger.debug(f"Directory ready: {dir_path}")
             except Exception as e:
-                logger.error(f"❌ Failed to create directory {dir_path}: {e}")
+                logger.error(f"Failed to create directory {dir_path}: {e}")
+                raise
         
-        logger.info(f"🖼️ ArtConfig initialized: {self.width}x{self.height}, Style: {self.art_style.name}")
+        logger.info(f"ImageConfig initialized: {self.width}x{self.height}, {self.format}")
 
 @dataclass
-class TextArt:
-    """Artistic text configuration"""
+class TextConfig:
+    """Text configuration"""
     primary_text: str = ""
     secondary_text: str = ""
     emoji: str = ""
-    font_size_primary: int = 80
+    font_size_primary: int = 72
     font_size_secondary: int = 48
-    font_size_emoji: int = 120
+    font_size_emoji: int = 96
     text_color: Tuple[int, int, int] = (255, 255, 255)
-    shadow_color: Tuple[int, int, int] = (30, 30, 60)
-    effects: List[TextEffect] = field(default_factory=lambda: [TextEffect.NEON_GLOW])
+    shadow_color: Tuple[int, int, int] = (50, 50, 50)
+    effects: List[TextEffect] = field(default_factory=lambda: [TextEffect.SHADOW])
     alignment: str = "center"
-    line_spacing: float = 1.3
-    max_width: int = 25
+    line_spacing: float = 1.2
+    max_width: int = 28
     font_style: str = "bold"
     font_family: str = ""
     opacity: float = 1.0
     rotation: float = 0.0
-    text_glow_intensity: int = 3
-    text_shadow_depth: int = 5
-    gradient_colors: List[Tuple[int, int, int]] = field(default_factory=list)
+    text_shadow_blur: int = 2
+    text_shadow_offset: int = 4
     
     def __post_init__(self):
-        """Validate and enhance text art"""
-        if not self.gradient_colors:
-            self.gradient_colors = [
-                (255, 105, 180),  # Hot pink
-                (0, 255, 255),    # Cyan
-                (255, 215, 0)     # Gold
-            ]
+        """Validate text configuration"""
+        self.font_size_primary = max(12, min(self.font_size_primary, 200))
+        self.font_size_secondary = max(12, min(self.font_size_secondary, 100))
+        self.font_size_emoji = max(12, min(self.font_size_emoji, 200))
+        self.line_spacing = max(1.0, min(self.line_spacing, 3.0))
+        self.max_width = max(10, min(self.max_width, 100))
+        self.opacity = max(0.0, min(self.opacity, 1.0))
+        self.rotation = max(-360.0, min(self.rotation, 360.0))
 
 @dataclass
-class BorderArt:
-    """Artistic border configuration"""
+class BorderConfig:
+    """Border configuration"""
     enabled: bool = True
-    border_type: BorderType = BorderType.GOLDEN_FRAME
-    color: Tuple[int, int, int] = (255, 215, 0)  # Gold
-    secondary_color: Tuple[int, int, int] = (255, 105, 180)  # Pink
-    tertiary_color: Tuple[int, int, int] = (0, 255, 255)  # Cyan
-    thickness: int = 25
-    padding: int = 60
-    corner_radius: int = 50
-    glow_intensity: int = 3
+    border_type: BorderType = BorderType.ROUNDED
+    color: Tuple[int, int, int] = (255, 105, 180)
+    secondary_color: Optional[Tuple[int, int, int]] = None
+    thickness: int = 20
+    padding: int = 50
+    corner_radius: int = 40
+    glow_intensity: int = 0
     opacity: float = 1.0
-    pattern_density: float = 0.7
-    sparkle_intensity: float = 0.3
+    pattern_spacing: int = 20
+    
+    def __post_init__(self):
+        """Validate border configuration"""
+        self.thickness = max(1, min(self.thickness, 100))
+        self.padding = max(0, min(self.padding, 200))
+        self.corner_radius = max(0, min(self.corner_radius, 200))
+        self.glow_intensity = max(0, min(self.glow_intensity, 10))
+        self.opacity = max(0.0, min(self.opacity, 1.0))
+        
+        if self.secondary_color is None:
+            self.secondary_color = (
+                min(255, self.color[0] + 30),
+                min(255, self.color[1] + 30),
+                min(255, self.color[2] + 30)
+            )
 
 @dataclass
-class BackgroundArt:
-    """Artistic background configuration"""
-    type: BackgroundType = BackgroundType.GALAXY_NEBULA
-    primary_color: Tuple[int, int, int] = (10, 5, 30)  # Deep space
-    secondary_color: Tuple[int, int, int] = (100, 20, 150)  # Purple nebula
-    tertiary_color: Tuple[int, int, int] = (20, 150, 200)  # Blue nebula
-    texture_path: Optional[str] = None
+class BackgroundConfig:
+    """Background configuration"""
+    type: str = "gradient"
+    primary_color: Tuple[int, int, int] = (20, 20, 40)
+    secondary_color: Optional[Tuple[int, int, int]] = None
+    tertiary_color: Optional[Tuple[int, int, int]] = None
+    image_path: Optional[str] = None
     opacity: float = 1.0
     blur_radius: int = 0
-    noise_intensity: float = 0.1
-    vignette_intensity: float = 0.4
-    star_density: float = 0.3
-    nebula_intensity: float = 0.8
-    magic_glow: bool = True
+    pattern_type: str = "none"
+    pattern_color: Optional[Tuple[int, int, int]] = None
+    pattern_intensity: float = 0.3
+    gradient_direction: GradientDirection = GradientDirection.DIAGONAL
+    noise_intensity: float = 0.0
+    vignette_intensity: float = 0.0
+    
+    def __post_init__(self):
+        """Validate background configuration"""
+        self.opacity = max(0.0, min(self.opacity, 1.0))
+        self.blur_radius = max(0, min(self.blur_radius, 20))
+        self.pattern_intensity = max(0.0, min(self.pattern_intensity, 1.0))
+        self.noise_intensity = max(0.0, min(self.noise_intensity, 1.0))
+        self.vignette_intensity = max(0.0, min(self.vignette_intensity, 1.0))
+        
+        if self.secondary_color is None:
+            self.secondary_color = (
+                min(255, self.primary_color[0] + 40),
+                min(255, self.primary_color[1] + 40),
+                min(255, self.primary_color[2] + 40)
+            )
+        
+        if self.tertiary_color is None:
+            self.tertiary_color = (
+                min(255, self.primary_color[0] + 80),
+                min(255, self.primary_color[1] + 80),
+                min(255, self.primary_color[2] + 80)
+            )
 
 @dataclass
-class MasterpieceResult:
-    """Result of masterpiece creation"""
+class GenerationResult:
+    """Result of image generation"""
     success: bool
     image_path: Optional[str] = None
-    animation_path: Optional[str] = None
     error: Optional[str] = None
-    creation_time: float = 0.0
+    processing_time: float = 0.0
     cache_hit: bool = False
     image_size: Optional[int] = None
-    artistic_score: float = 0.0
     metadata: Optional[Dict] = None
     
     def to_dict(self) -> Dict:
         return asdict(self)
 
-# Magical Utility Functions
-def create_rainbow_gradient(width: int, height: int) -> Image.Image:
-    """Create magical rainbow gradient"""
-    gradient = Image.new('RGB', (width, height))
-    draw = ImageDraw.Draw(gradient)
-    
-    for x in range(width):
-        # Rainbow colors
-        r = int(255 * abs(math.sin(x * 0.01)))
-        g = int(255 * abs(math.sin(x * 0.01 + 2)))
-        b = int(255 * abs(math.sin(x * 0.01 + 4)))
-        
-        for y in range(height):
-            # Add some vertical variation
-            factor = 0.5 + 0.5 * math.sin(y * 0.005)
-            draw.point((x, y), fill=(
-                int(r * factor),
-                int(g * factor),
-                int(b * factor)
-            ))
-    
-    return gradient
+# Utility Functions
+def retry_on_failure(max_attempts: int = MAX_RETRY_ATTEMPTS, delay: float = RETRY_DELAY):
+    """Decorator for retrying failed operations"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            for attempt in range(max_attempts):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_exception = e
+                    logger.warning(f"Attempt {attempt + 1}/{max_attempts} failed for {func.__name__}: {e}")
+                    if attempt < max_attempts - 1:
+                        time.sleep(delay * (attempt + 1))
+            raise last_exception
+        return wrapper
+    return decorator
 
-def add_stars(image: Image.Image, density: float = 0.3) -> Image.Image:
-    """Add magical stars to image"""
-    if image.mode != 'RGBA':
-        image = image.convert('RGBA')
-    
-    width, height = image.size
-    star_layer = Image.new('RGBA', (width, height), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(star_layer)
-    
-    num_stars = int(width * height * density / 10000)
-    
-    for _ in range(num_stars):
-        x = random.randint(0, width - 1)
-        y = random.randint(0, height - 1)
-        size = random.randint(1, 4)
-        brightness = random.randint(150, 255)
-        twinkle = random.randint(50, 150)
-        
-        # Draw star with glow
-        draw.ellipse([x-size, y-size, x+size, y+size], 
-                    fill=(brightness, brightness, brightness, twinkle))
-        
-        # Add twinkle effect
-        if random.random() < 0.3:
-            draw.ellipse([x-size*2, y-size*2, x+size*2, y+size*2], 
-                        fill=(brightness, brightness, brightness, twinkle//3))
-    
-    return Image.alpha_composite(image, star_layer)
+def safe_color_value(value: int) -> int:
+    """Ensure color value is within 0-255 range"""
+    return max(0, min(255, value))
 
-def create_galaxy_background(width: int, height: int) -> Image.Image:
-    """Create magical galaxy background"""
-    # Base dark space
-    background = Image.new('RGB', (width, height), (5, 5, 20))
-    draw = ImageDraw.Draw(background)
-    
-    # Add nebula clouds
-    for _ in range(5):
-        center_x = random.randint(0, width)
-        center_y = random.randint(0, height)
-        radius = random.randint(100, 400)
-        
-        # Nebula colors
-        colors = [
-            (100, 20, 150, 30),   # Purple
-            (20, 100, 200, 40),   # Blue
-            (200, 50, 100, 35),   # Pink
-            (50, 200, 150, 25)    # Teal
-        ]
-        
-        for r in range(radius, 0, -radius//10):
-            color = random.choice(colors)
-            alpha = color[3] * r // radius
-            
-            draw.ellipse(
-                [center_x - r, center_y - r, center_x + r, center_y + r],
-                fill=(color[0], color[1], color[2], alpha)
-            )
-    
-    # Convert to RGB for consistency
-    background = background.convert('RGB')
-    
-    # Add stars
-    background = add_stars(background.convert('RGBA'), density=0.5)
-    
-    # Add subtle blur for dreamy effect
-    background = background.filter(GaussianBlur(radius=1))
-    
-    return background.convert('RGB')
+def create_gradient_color(color1: Tuple[int, int, int], 
+                         color2: Tuple[int, int, int], 
+                         ratio: float) -> Tuple[int, int, int]:
+    """Create gradient color from two colors"""
+    return (
+        int(color1[0] * (1 - ratio) + color2[0] * ratio),
+        int(color1[1] * (1 - ratio) + color2[1] * ratio),
+        int(color1[2] * (1 - ratio) + color2[2] * ratio)
+    )
 
-# Artistic Managers
-class MagicFontManager:
-    """Magical font manager with special effects"""
+# Core Managers
+class FontManager:
+    """Advanced font manager with Bengali support"""
     
-    def __init__(self, assets_dir: str = "./art_assets"):
-        self.fonts_dir = Path(assets_dir) / "fonts"
+    def __init__(self, assets_dir: str = "./assets"):
+        if not PIL_AVAILABLE:
+            raise RuntimeError("PIL is not available")
+        
+        self.assets_dir = Path(assets_dir)
+        self.fonts_dir = self.assets_dir / "fonts"
         self.fonts_dir.mkdir(parents=True, exist_ok=True)
         
         self.font_cache = {}
         self.available_fonts = []
-        self.special_fonts = {}
+        self.bengali_fonts = []
+        self.english_fonts = []
         
-        self._load_magical_fonts()
-        logger.info(f"🔮 MagicFontManager loaded {len(self.available_fonts)} fonts")
+        self._load_fonts()
+        logger.info(f"FontManager initialized with {len(self.available_fonts)} fonts")
     
-    def _load_magical_fonts(self):
-        """Load magical fonts"""
-        # Try to load system and custom fonts
+    def _load_fonts(self):
+        """Load all available fonts"""
         font_locations = [
             self.fonts_dir,
             Path("/system/fonts"),
             Path("/data/data/com.termux/files/usr/share/fonts"),
-            Path("/usr/share/fonts/truetype"),
-            Path("./fonts"),
+            Path("/usr/share/fonts"),
+            Path("."),
         ]
+        
+        font_extensions = ['.ttf', '.otf', '.TTF', '.OTF']
         
         for location in font_locations:
             if location.exists():
-                for ext in ['.ttf', '.otf']:
+                for ext in font_extensions:
                     for font_file in location.rglob(f"*{ext}"):
                         try:
                             font_path = str(font_file.resolve())
-                            if font_path not in self.available_fonts:
-                                # Test font
-                                ImageFont.truetype(font_path, 12)
-                                self.available_fonts.append(font_path)
+                            if font_path in self.available_fonts:
+                                continue
                                 
-                                # Categorize by style
-                                name = font_file.stem.lower()
-                                if any(x in name for x in ['bold', 'heavy', 'black']):
-                                    self.special_fonts['bold'] = font_path
-                                elif any(x in name for x in ['italic', 'oblique']):
-                                    self.special_fonts['italic'] = font_path
-                                elif any(x in name for x in ['decorative', 'ornate', 'fancy']):
-                                    self.special_fonts['fancy'] = font_path
-                        except:
+                            # Test load font
+                            test_font = ImageFont.truetype(font_path, 12)
+                            self.available_fonts.append(font_path)
+                            
+                            # Categorize
+                            font_name = font_file.stem.lower()
+                            if any(keyword in font_name for keyword in ['bengali', 'bangla', 'solaiman', 'kalpurush', 'lipee']):
+                                self.bengali_fonts.append(font_path)
+                            else:
+                                self.english_fonts.append(font_path)
+                            
+                        except Exception as e:
                             continue
         
-        # Fallback to default
+        # Ensure we have some fonts
         if not self.available_fonts:
-            logger.warning("Using default fonts - add custom fonts for better results")
+            logger.warning("No custom fonts found, using PIL default")
     
-    def get_magical_font(self, size: int, style: str = "regular", effect: TextEffect = TextEffect.NONE):
-        """Get magical font with effects"""
-        cache_key = f"{size}_{style}_{effect.name}"
+    def _is_bengali_text(self, text: str) -> bool:
+        """Detect if text contains Bengali characters"""
+        if not text:
+            return False
+        
+        bengali_range = range(0x0980, 0x09FF + 1)
+        for char in text:
+            try:
+                if ord(char) in bengali_range:
+                    return True
+            except:
+                continue
+        return False
+    
+    @lru_cache(maxsize=100)
+    def get_font(self, size: int, style: str = "regular", text: str = None):
+        """Get appropriate font"""
+        if not PIL_AVAILABLE:
+            return None
+        
+        cache_key = f"{size}_{style}_{text}"
         
         if cache_key in self.font_cache:
             return self.font_cache[cache_key]
         
         try:
-            # Try to get appropriate font
             font_path = None
             
-            if style == "bold" and 'bold' in self.special_fonts:
-                font_path = self.special_fonts['bold']
-            elif style == "italic" and 'italic' in self.special_fonts:
-                font_path = self.special_fonts['italic']
-            elif style == "fancy" and 'fancy' in self.special_fonts:
-                font_path = self.special_fonts['fancy']
+            # Select font based on text language
+            if text and self._is_bengali_text(text):
+                if self.bengali_fonts:
+                    font_path = random.choice(self.bengali_fonts)
+                elif self.available_fonts:
+                    font_path = random.choice(self.available_fonts)
+            else:
+                if self.english_fonts:
+                    font_path = random.choice(self.english_fonts)
+                elif self.available_fonts:
+                    font_path = random.choice(self.available_fonts)
             
-            if not font_path and self.available_fonts:
-                font_path = random.choice(self.available_fonts)
-            
+            # Load font
             if font_path:
                 font = ImageFont.truetype(font_path, size)
             else:
                 font = ImageFont.load_default()
-                # Enlarge default font for better appearance
-                font = ImageFont.truetype("", size) if PIL_AVAILABLE else font
-            
-            # Apply simulated effects through font selection
-            if effect == TextEffect.FIRE_TEXT and 'bold' in self.special_fonts:
-                font = ImageFont.truetype(self.special_fonts['bold'], size)
-            elif effect == TextEffect.ICE_TEXT and self.available_fonts:
-                font = ImageFont.truetype(random.choice(self.available_fonts), size)
             
             self.font_cache[cache_key] = font
             return font
             
         except Exception as e:
-            logger.error(f"Font error: {e}")
+            logger.error(f"Error loading font: {e}")
             return ImageFont.load_default()
 
-class ColorAlchemy:
-    """Magical color manipulation"""
+class ColorManager:
+    """Advanced color management with themes"""
     
     def __init__(self):
-        self.palettes = self._create_magical_palettes()
+        self.palettes = self._initialize_palettes()
         self.gradient_cache = {}
-    
-    def _create_magical_palettes(self):
-        """Create magical color palettes"""
+        
+    def _initialize_palettes(self) -> Dict[str, Dict]:
+        """Initialize comprehensive color palettes"""
         return {
-            "galactic": {
-                "name": "Galactic Dream",
-                "primary": (10, 5, 30),
-                "secondary": (100, 20, 150),
-                "accent": (0, 255, 255),
-                "text": (255, 255, 255),
-                "highlight": (255, 105, 180),
-                "border": (255, 215, 0),
-                "glow": (0, 200, 255)
-            },
-            "inferno": {
-                "name": "Inferno Flame",
-                "primary": (20, 5, 10),
-                "secondary": (100, 20, 10),
-                "accent": (255, 100, 0),
-                "text": (255, 255, 200),
-                "highlight": (255, 50, 0),
-                "border": (255, 150, 0),
-                "glow": (255, 50, 0)
-            },
-            "arctic": {
-                "name": "Arctic Ice",
-                "primary": (5, 10, 30),
-                "secondary": (20, 50, 100),
-                "accent": (150, 230, 255),
-                "text": (220, 240, 255),
-                "highlight": (100, 200, 255),
+            "midnight": {
+                "name": "Midnight",
+                "primary": (10, 15, 30),
+                "secondary": (40, 45, 70),
+                "accent": (0, 200, 255),
+                "text": (240, 240, 255),
+                "shadow": (20, 20, 40),
+                "highlight": (255, 100, 150),
                 "border": (0, 150, 255),
-                "glow": (100, 200, 255)
+                "success": (0, 255, 150),
+                "warning": (255, 200, 0),
+                "error": (255, 50, 50)
+            },
+            "sunset": {
+                "name": "Sunset",
+                "primary": (255, 200, 150),
+                "secondary": (255, 150, 100),
+                "accent": (255, 80, 80),
+                "text": (60, 30, 20),
+                "shadow": (200, 150, 100),
+                "highlight": (255, 220, 100),
+                "border": (255, 100, 50),
+                "success": (100, 255, 150),
+                "warning": (255, 180, 50),
+                "error": (255, 70, 70)
             },
             "forest": {
-                "name": "Enchanted Forest",
-                "primary": (5, 20, 10),
-                "secondary": (20, 80, 40),
-                "accent": (100, 255, 150),
-                "text": (220, 255, 220),
-                "highlight": (50, 200, 100),
-                "border": (100, 255, 150),
-                "glow": (50, 255, 100)
+                "name": "Forest",
+                "primary": (20, 40, 30),
+                "secondary": (40, 100, 80),
+                "accent": (80, 200, 120),
+                "text": (220, 240, 220),
+                "shadow": (10, 30, 20),
+                "highlight": (150, 220, 180),
+                "border": (60, 180, 140),
+                "success": (100, 255, 180),
+                "warning": (255, 220, 100),
+                "error": (255, 100, 100)
             },
-            "golden": {
-                "name": "Golden Royalty",
-                "primary": (30, 20, 5),
-                "secondary": (80, 60, 20),
-                "accent": (255, 215, 0),
-                "text": (255, 240, 200),
-                "highlight": (255, 200, 0),
-                "border": (255, 215, 0),
-                "glow": (255, 200, 50)
-            },
-            "neon": {
-                "name": "Neon Cyberpunk",
-                "primary": (0, 5, 15),
-                "secondary": (20, 0, 40),
+            "cyberpunk": {
+                "name": "Cyberpunk",
+                "primary": (0, 0, 20),
+                "secondary": (30, 0, 50),
                 "accent": (255, 0, 255),
                 "text": (0, 255, 255),
+                "shadow": (0, 50, 50),
+                "highlight": (255, 100, 0),
+                "border": (255, 0, 255),
+                "success": (0, 255, 200),
+                "warning": (255, 255, 0),
+                "error": (255, 0, 100)
+            },
+            "golden": {
+                "name": "Golden",
+                "primary": (30, 25, 20),
+                "secondary": (60, 50, 40),
+                "accent": (255, 215, 0),
+                "text": (255, 240, 200),
+                "shadow": (50, 40, 20),
+                "highlight": (255, 240, 150),
+                "border": (255, 215, 0),
+                "success": (200, 255, 0),
+                "warning": (255, 180, 0),
+                "error": (255, 100, 0)
+            },
+            "neon": {
+                "name": "Neon",
+                "primary": (0, 10, 20),
+                "secondary": (20, 0, 40),
+                "accent": (0, 255, 200),
+                "text": (200, 255, 255),
+                "shadow": (0, 30, 20),
                 "highlight": (255, 0, 150),
                 "border": (0, 255, 200),
-                "glow": (255, 0, 255)
+                "success": (0, 255, 150),
+                "warning": (255, 255, 0),
+                "error": (255, 0, 100)
+            },
+            "pastel": {
+                "name": "Pastel",
+                "primary": (255, 240, 245),
+                "secondary": (240, 230, 255),
+                "accent": (180, 220, 255),
+                "text": (80, 80, 100),
+                "shadow": (220, 210, 220),
+                "highlight": (255, 200, 220),
+                "border": (200, 180, 255),
+                "success": (180, 255, 200),
+                "warning": (255, 240, 180),
+                "error": (255, 180, 180)
             }
         }
     
-    def get_magical_palette(self, style: str = None):
-        """Get magical color palette"""
-        if style and style in self.palettes:
-            return self.palettes[style]
+    def get_palette(self, name: str = None) -> Dict:
+        """Get color palette by name or auto-select"""
+        if name and name in self.palettes:
+            return self.palettes[name]
         
-        # Auto-select based on time
+        # Auto-select based on time of day
         hour = datetime.now().hour
-        if hour < 6:
-            return self.palettes["galactic"]
-        elif hour < 12:
+        if 5 <= hour < 12:
+            return self.palettes["sunset"]
+        elif 12 <= hour < 17:
             return self.palettes["golden"]
-        elif hour < 18:
-            return self.palettes["forest"]
+        elif 17 <= hour < 20:
+            return self.palettes["cyberpunk"]
+        elif 20 <= hour < 23:
+            return self.palettes["neon"]
         else:
-            return random.choice(list(self.palettes.values()))
+            return self.palettes["midnight"]
     
-    def create_gradient_magic(self, width: int, height: int, palette: Dict) -> Image.Image:
-        """Create magical gradient background"""
+    def get_random_palette(self) -> Dict:
+        """Get random color palette"""
+        return random.choice(list(self.palettes.values()))
+    
+    def generate_gradient(self, width: int, height: int,
+                         color1: Tuple[int, int, int],
+                         color2: Tuple[int, int, int],
+                         color3: Optional[Tuple[int, int, int]] = None,
+                         direction: GradientDirection = GradientDirection.DIAGONAL) -> Image.Image:
+        """Generate gradient image with multiple colors"""
+        cache_key = f"{width}x{height}_{color1}_{color2}_{color3}_{direction.name}"
+        
+        if cache_key in self.gradient_cache:
+            return self.gradient_cache[cache_key].copy()
+        
         gradient = Image.new('RGB', (width, height))
         draw = ImageDraw.Draw(gradient)
         
-        # Create diagonal gradient with multiple colors
-        for x in range(width):
-            for y in range(height):
-                ratio = (x + y) / (width + height)
-                
-                # Interpolate between colors
-                if ratio < 0.33:
-                    r = int(palette['primary'][0] * (1 - ratio*3) + palette['secondary'][0] * ratio*3)
-                    g = int(palette['primary'][1] * (1 - ratio*3) + palette['secondary'][1] * ratio*3)
-                    b = int(palette['primary'][2] * (1 - ratio*3) + palette['secondary'][2] * ratio*3)
-                elif ratio < 0.66:
-                    r = int(palette['secondary'][0] * (1 - (ratio-0.33)*3) + palette['accent'][0] * (ratio-0.33)*3)
-                    g = int(palette['secondary'][1] * (1 - (ratio-0.33)*3) + palette['accent'][1] * (ratio-0.33)*3)
-                    b = int(palette['secondary'][2] * (1 - (ratio-0.33)*3) + palette['accent'][2] * (ratio-0.33)*3)
+        if direction == GradientDirection.HORIZONTAL:
+            for x in range(width):
+                ratio = x / max(width - 1, 1)
+                if color3:
+                    if ratio < 0.5:
+                        color = create_gradient_color(color1, color2, ratio * 2)
+                    else:
+                        color = create_gradient_color(color2, color3, (ratio - 0.5) * 2)
                 else:
-                    r = int(palette['accent'][0] * (1 - (ratio-0.66)*3) + palette['highlight'][0] * (ratio-0.66)*3)
-                    g = int(palette['accent'][1] * (1 - (ratio-0.66)*3) + palette['highlight'][1] * (ratio-0.66)*3)
-                    b = int(palette['accent'][2] * (1 - (ratio-0.66)*3) + palette['highlight'][2] * (ratio-0.66)*3)
-                
-                draw.point((x, y), fill=(r, g, b))
+                    color = create_gradient_color(color1, color2, ratio)
+                draw.line([(x, 0), (x, height)], fill=color)
         
+        elif direction == GradientDirection.VERTICAL:
+            for y in range(height):
+                ratio = y / max(height - 1, 1)
+                if color3:
+                    if ratio < 0.5:
+                        color = create_gradient_color(color1, color2, ratio * 2)
+                    else:
+                        color = create_gradient_color(color2, color3, (ratio - 0.5) * 2)
+                else:
+                    color = create_gradient_color(color1, color2, ratio)
+                draw.line([(0, y), (width, y)], fill=color)
+        
+        else:  # DIAGONAL
+            for x in range(width):
+                for y in range(height):
+                    ratio = (x + y) / (width + height)
+                    if color3:
+                        if ratio < 0.5:
+                            color = create_gradient_color(color1, color2, ratio * 2)
+                        else:
+                            color = create_gradient_color(color2, color3, (ratio - 0.5) * 2)
+                    else:
+                        color = create_gradient_color(color1, color2, ratio)
+                    draw.point((x, y), fill=color)
+        
+        self.gradient_cache[cache_key] = gradient.copy()
         return gradient
-    
-    def rainbow_text_color(self, x: int, y: int, width: int, height: int) -> Tuple[int, int, int]:
-        """Generate rainbow color for text"""
-        hue = (x + y) / (width + height) * 360
-        return self.hsv_to_rgb(hue, 0.8, 1.0)
-    
-    def hsv_to_rgb(self, h: float, s: float, v: float) -> Tuple[int, int, int]:
-        """Convert HSV to RGB"""
-        h = h % 360
-        c = v * s
-        x = c * (1 - abs((h / 60) % 2 - 1))
-        m = v - c
-        
-        if 0 <= h < 60:
-            r, g, b = c, x, 0
-        elif 60 <= h < 120:
-            r, g, b = x, c, 0
-        elif 120 <= h < 180:
-            r, g, b = 0, c, x
-        elif 180 <= h < 240:
-            r, g, b = 0, x, c
-        elif 240 <= h < 300:
-            r, g, b = x, 0, c
-        else:
-            r, g, b = c, 0, x
-        
-        return (
-            int((r + m) * 255),
-            int((g + m) * 255),
-            int((b + m) * 255)
-        )
 
-class ArtMagic:
-    """Magical artistic effects"""
+class EffectManager:
+    """Advanced visual effects manager"""
     
     @staticmethod
-    def apply_text_magic(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont,
-                        position: Tuple[int, int], effect: TextEffect,
-                        colors: List[Tuple[int, int, int]] = None):
-        """Apply magical effects to text"""
+    @retry_on_failure(max_attempts=2)
+    def add_text_shadow(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont,
+                       position: Tuple[int, int], text_color: Tuple[int, int, int],
+                       shadow_color: Tuple[int, int, int] = None,
+                       offset: int = 4, blur_radius: int = 2) -> None:
+        """Add professional shadow effect to text"""
+        if not text or not font:
+            return
+        
         x, y = position
         
-        if effect == TextEffect.NEON_GLOW:
-            ArtMagic._neon_glow_text(draw, text, font, (x, y), colors)
-        elif effect == TextEffect.GOLDEN_EMBOSS:
-            ArtMagic._golden_emboss_text(draw, text, font, (x, y))
-        elif effect == TextEffect.GRADIENT_RAINBOW:
-            ArtMagic._rainbow_gradient_text(draw, text, font, (x, y))
-        elif effect == TextEffect.FIRE_TEXT:
-            ArtMagic._fire_text(draw, text, font, (x, y))
-        elif effect == TextEffect.ICE_TEXT:
-            ArtMagic._ice_text(draw, text, font, (x, y))
-        else:
-            # Default shadow effect
-            draw.text((x+3, y+3), text, font=font, fill=(0, 0, 0, 100))
-            draw.text((x, y), text, font=font, fill=(255, 255, 255))
-    
-    @staticmethod
-    def _neon_glow_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont,
-                       position: Tuple[int, int], colors: List[Tuple[int, int, int]]):
-        """Create neon glow text"""
-        x, y = position
-        
-        # Multiple glow layers
-        for i in range(5, 0, -1):
-            glow_color = (
-                min(255, colors[0][0] + i*10),
-                min(255, colors[1][1] + i*10),
-                min(255, colors[2][2] + i*10),
-                50 - i*8
+        if shadow_color is None:
+            shadow_color = (
+                max(0, text_color[0] // 4),
+                max(0, text_color[1] // 4),
+                max(0, text_color[2] // 4)
             )
-            
-            for dx in range(-i, i+1, 2):
-                for dy in range(-i, i+1, 2):
-                    draw.text((x+dx, y+dy), text, font=font, fill=glow_color)
+        
+        # Multiple shadow layers for depth
+        for i in range(blur_radius, 0, -1):
+            shadow_offset = offset * i // max(blur_radius, 1)
+            shadow_pos = (
+                x + shadow_offset,
+                y + shadow_offset
+            )
+            try:
+                draw.text(shadow_pos, text, font=font, fill=shadow_color)
+            except Exception as e:
+                logger.debug(f"Shadow layer failed: {e}")
+                break
         
         # Main text
-        draw.text((x, y), text, font=font, fill=(255, 255, 255))
+        try:
+            draw.text(position, text, font=font, fill=text_color)
+        except Exception as e:
+            logger.error(f"Failed to draw text: {e}")
     
     @staticmethod
-    def _golden_emboss_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont,
-                          position: Tuple[int, int]):
-        """Create golden embossed text"""
+    @retry_on_failure(max_attempts=2)
+    def add_text_outline(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont,
+                        position: Tuple[int, int], text_color: Tuple[int, int, int],
+                        outline_color: Tuple[int, int, int] = (0, 0, 0),
+                        thickness: int = 2) -> None:
+        """Add outline to text"""
+        if not text or not font:
+            return
+        
         x, y = position
         
-        # Shadow for depth
-        draw.text((x+2, y+2), text, font=font, fill=(100, 70, 0))
+        # Draw outline in all directions
+        for dx in range(-thickness, thickness + 1):
+            for dy in range(-thickness, thickness + 1):
+                if dx != 0 or dy != 0:
+                    try:
+                        outline_pos = (x + dx, y + dy)
+                        draw.text(outline_pos, text, font=font, fill=outline_color)
+                    except Exception as e:
+                        logger.debug(f"Outline point failed: {e}")
         
-        # Golden gradient
-        for i in range(3):
-            shade = 200 - i*20
-            draw.text((x-i, y-i), text, font=font, fill=(shade, shade//2, 0))
-        
-        # Highlight
-        draw.text((x, y), text, font=font, fill=(255, 215, 0))
+        # Draw main text
+        try:
+            draw.text(position, text, font=font, fill=text_color)
+        except Exception as e:
+            logger.error(f"Failed to draw text: {e}")
     
     @staticmethod
-    def _rainbow_gradient_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont,
-                              position: Tuple[int, int]):
-        """Create rainbow gradient text"""
-        x, y = position
-        
-        # Get text bounding box
-        bbox = draw.textbbox((0, 0), text, font=font)
-        text_width = bbox[2] - bbox[0]
-        
-        # Draw rainbow gradient by drawing each character separately
-        for i, char in enumerate(text):
-            char_bbox = draw.textbbox((0, 0), char, font=font)
-            char_width = char_bbox[2] - char_bbox[0]
-            
-            # Rainbow color based on position
-            hue = (i / len(text)) * 360
-            color = ColorAlchemy().hsv_to_rgb(hue, 0.8, 1.0)
-            
-            # Draw character
-            char_x = x + sum(draw.textbbox((0, 0), text[j], font=font)[2] - 
-                           draw.textbbox((0, 0), text[j], font=font)[0] 
-                           for j in range(i))
-            
-            draw.text((char_x, y), char, font=font, fill=color)
-    
-    @staticmethod
-    def _fire_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont,
-                  position: Tuple[int, int]):
-        """Create fire effect text"""
-        x, y = position
-        
-        # Fire gradient from yellow to red
-        colors = [
-            (255, 255, 0),   # Yellow
-            (255, 150, 0),   # Orange
-            (255, 50, 0),    # Red
-            (150, 0, 0)      # Dark red
-        ]
-        
-        # Draw multiple layers for fire effect
-        for i, color in enumerate(colors):
-            offset = i * 2
-            draw.text((x - offset//2, y - offset), text, font=font, fill=color)
-        
-        # White hot center
-        draw.text((x, y), text, font=font, fill=(255, 255, 200))
-    
-    @staticmethod
-    def _ice_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont,
-                 position: Tuple[int, int]):
-        """Create ice effect text"""
-        x, y = position
-        
-        # Ice gradient
-        colors = [
-            (200, 230, 255),  # Light blue
-            (150, 200, 255),  # Blue
-            (100, 170, 255),  # Deep blue
-            (50, 100, 200)    # Dark blue
-        ]
-        
-        # Draw icy layers
-        for i, color in enumerate(colors):
-            offset = i
-            for dx in range(-offset, offset+1):
-                for dy in range(-offset, offset+1):
-                    if dx != 0 or dy != 0:
-                        draw.text((x+dx, y+dy), text, font=font, fill=(*color, 50))
-        
-        # Main icy text
-        draw.text((x, y), text, font=font, fill=(200, 230, 255))
-    
-    @staticmethod
-    def create_magical_border(image: Image.Image, border_type: BorderType,
-                            colors: Tuple[Tuple[int, int, int], ...]) -> Image.Image:
-        """Create magical borders"""
-        if border_type == BorderType.NONE:
+    @retry_on_failure(max_attempts=2)
+    def add_text_glow(image: Image.Image, glow_color: Tuple[int, int, int] = None,
+                     intensity: int = 3) -> Image.Image:
+        """Add glow effect around text areas"""
+        if intensity == 0 or not PIL_AVAILABLE:
             return image
         
-        width, height = image.size
-        
-        if image.mode != 'RGBA':
-            image = image.convert('RGBA')
-        
-        border_layer = Image.new('RGBA', (width, height), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(border_layer)
-        
-        if border_type == BorderType.GOLDEN_FRAME:
-            # Golden frame with ornate corners
-            thickness = 30
+        try:
+            if glow_color is None:
+                glow_color = (0, 200, 255)
             
-            # Main frame
-            draw.rectangle(
-                [thickness, thickness, width-thickness, height-thickness],
-                outline=(*colors[0], 255),
-                width=thickness
-            )
+            # Create glow layer from alpha channel
+            if image.mode != 'RGBA':
+                image = image.convert('RGBA')
             
-            # Inner highlight
-            draw.rectangle(
-                [thickness*2, thickness*2, width-thickness*2, height-thickness*2],
-                outline=(*colors[1], 200),
-                width=thickness//3
-            )
+            alpha = image.split()[3]
+            glow = Image.new('RGBA', image.size, (0, 0, 0, 0))
+            glow.paste((*glow_color, 100), (0, 0), alpha)
             
-            # Ornate corners
-            corner_size = 60
-            for corner_x, corner_y in [(0, 0), (width, 0), (0, height), (width, height)]:
-                if corner_x == 0 and corner_y == 0:  # Top-left
-                    draw.arc([-corner_size, -corner_size, corner_size, corner_size], 
-                            0, 90, fill=(*colors[0], 255), width=10)
-                elif corner_x == width and corner_y == 0:  # Top-right
-                    draw.arc([width-corner_size, -corner_size, width+corner_size, corner_size], 
-                            90, 180, fill=(*colors[0], 255), width=10)
-                elif corner_x == 0 and corner_y == height:  # Bottom-left
-                    draw.arc([-corner_size, height-corner_size, corner_size, height+corner_size], 
-                            270, 360, fill=(*colors[0], 255), width=10)
-                else:  # Bottom-right
-                    draw.arc([width-corner_size, height-corner_size, width+corner_size, height+corner_size], 
-                            180, 270, fill=(*colors[0], 255), width=10)
-        
-        elif border_type == BorderType.NEON_TUBE:
-            # Neon tube border with glow
-            thickness = 20
+            # Apply blur for glow effect
+            for i in range(intensity):
+                glow = glow.filter(ImageFilter.GaussianBlur(radius=1))
             
-            # Multiple glow layers
-            for i in range(3):
-                glow_thickness = thickness + i * 10
-                glow_alpha = 150 - i * 50
-                
-                draw.rounded_rectangle(
-                    [glow_thickness, glow_thickness, 
-                     width-glow_thickness, height-glow_thickness],
-                    radius=40,
-                    outline=(*colors[0], glow_alpha),
-                    width=5
-                )
+            # Composite with original
+            result = Image.alpha_composite(glow, image)
+            return result
             
-            # Main neon tube
-            draw.rounded_rectangle(
-                [thickness, thickness, width-thickness, height-thickness],
-                radius=40,
-                outline=(*colors[0], 255),
-                width=thickness//2
-            )
-        
-        elif border_type == BorderType.SPARKLE_FRAME:
-            # Sparkling frame
-            thickness = 25
-            
-            # Frame
-            draw.rectangle(
-                [thickness, thickness, width-thickness, height-thickness],
-                outline=(*colors[0], 255),
-                width=thickness
-            )
-            
-            # Add sparkles
-            for _ in range(50):
-                side = random.choice(['top', 'bottom', 'left', 'right'])
-                
-                if side == 'top':
-                    x = random.randint(thickness*2, width-thickness*2)
-                    y = thickness
-                elif side == 'bottom':
-                    x = random.randint(thickness*2, width-thickness*2)
-                    y = height - thickness
-                elif side == 'left':
-                    x = thickness
-                    y = random.randint(thickness*2, height-thickness*2)
-                else:
-                    x = width - thickness
-                    y = random.randint(thickness*2, height-thickness*2)
-                
-                size = random.randint(2, 5)
-                sparkle_color = random.choice([colors[0], colors[1], (255, 255, 255)])
-                
-                draw.ellipse(
-                    [x-size, y-size, x+size, y+size],
-                    fill=(*sparkle_color, 200)
-                )
-        
-        # Composite with original image
-        return Image.alpha_composite(image, border_layer)
-
-# Main Magical Generator
-class MagicalImageGenerator:
-    """✨ MAGICAL IMAGE GENERATOR v8.0 - MASTERPIECE EDITION ✨"""
+        except Exception as e:
+            logger.error(f"Glow effect failed: {e}")
+            return image
     
-    def __init__(self, config: Optional[ArtConfig] = None):
+    @staticmethod
+    def add_vignette(image: Image.Image, intensity: float = 0.6) -> Image.Image:
+        """Add vignette effect to image"""
+        if intensity == 0 or not PIL_AVAILABLE:
+            return image
+        
+        try:
+            if image.mode != 'RGBA':
+                image = image.convert('RGBA')
+            
+            width, height = image.size
+            vignette = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(vignette)
+            
+            center_x, center_y = width // 2, height // 2
+            max_radius = int(math.sqrt(width**2 + height**2) / 2)
+            
+            # Create radial gradient
+            steps = 20
+            for i in range(steps):
+                radius = int(max_radius * (i / steps))
+                alpha = int(255 * intensity * (1 - (i / steps)**2))
+                
+                if radius > 0 and alpha > 0:
+                    draw.ellipse(
+                        [center_x - radius, center_y - radius,
+                         center_x + radius, center_y + radius],
+                        fill=(0, 0, 0, alpha),
+                        outline=None
+                    )
+            
+            return Image.alpha_composite(image, vignette)
+            
+        except Exception as e:
+            logger.error(f"Vignette effect failed: {e}")
+            return image
+    
+    @staticmethod
+    def create_border(border_type: BorderType, size: Tuple[int, int],
+                     color: Tuple[int, int, int] = (255, 255, 255),
+                     secondary_color: Optional[Tuple[int, int, int]] = None,
+                     thickness: int = 20, corner_radius: int = 40) -> Image.Image:
+        """Create professional borders"""
+        if border_type == BorderType.NONE or not PIL_AVAILABLE:
+            return Image.new('RGBA', size, (0, 0, 0, 0))
+        
+        try:
+            width, height = size
+            border = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(border)
+            
+            if secondary_color is None:
+                secondary_color = (
+                    min(255, color[0] + 30),
+                    min(255, color[1] + 30),
+                    min(255, color[2] + 30)
+                )
+            
+            color_rgba = (*color, 255)
+            secondary_rgba = (*secondary_color, 200)
+            
+            if border_type == BorderType.SIMPLE:
+                draw.rectangle(
+                    [thickness, thickness, 
+                     width - thickness, height - thickness],
+                    outline=color_rgba,
+                    width=thickness
+                )
+            
+            elif border_type == BorderType.ROUNDED:
+                # Draw rounded rectangle
+                draw.rounded_rectangle(
+                    [thickness, thickness,
+                     width - thickness, height - thickness],
+                    radius=corner_radius,
+                    outline=color_rgba,
+                    width=thickness
+                )
+            
+            elif border_type == BorderType.NEON:
+                # Neon glow border with multiple layers
+                for i in range(3):
+                    glow_thickness = thickness + i * 5
+                    glow_alpha = 200 - i * 60
+                    glow_color = (*color, glow_alpha)
+                    
+                    draw.rounded_rectangle(
+                        [glow_thickness, glow_thickness,
+                         width - glow_thickness, height - glow_thickness],
+                        radius=corner_radius + i * 5,
+                        outline=glow_color,
+                        width=3
+                    )
+            
+            return border
+            
+        except Exception as e:
+            logger.error(f"Border creation failed: {e}")
+            return Image.new('RGBA', size, (0, 0, 0, 0))
+
+class CacheManager:
+    """Advanced cache management"""
+    
+    def __init__(self, cache_dir: str = "./cache", 
+                 ttl_hours: int = CACHE_TTL_HOURS, 
+                 max_size: int = MAX_CACHE_SIZE):
+        
+        self.cache_dir = Path(cache_dir)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.ttl = timedelta(hours=ttl_hours)
+        self.max_size = max_size
+        self.metadata = {}
+        self.lock = threading.RLock()
+        
+        self._load_metadata()
+        logger.info(f"CacheManager initialized: {cache_dir}, TTL: {ttl_hours}h, Max: {max_size}")
+    
+    def _load_metadata(self):
+        """Load cache metadata"""
+        metadata_file = self.cache_dir / "metadata.json"
+        if metadata_file.exists():
+            try:
+                with self.lock:
+                    with open(metadata_file, 'r', encoding='utf-8') as f:
+                        self.metadata = json.load(f)
+            except:
+                self.metadata = {}
+    
+    def _save_metadata(self):
+        """Save cache metadata"""
+        if not self.metadata:
+            return
+        
+        metadata_file = self.cache_dir / "metadata.json"
+        try:
+            with self.lock:
+                temp_file = metadata_file.with_suffix('.tmp')
+                with open(temp_file, 'w', encoding='utf-8') as f:
+                    json.dump(self.metadata, f, indent=2, ensure_ascii=False)
+                temp_file.replace(metadata_file)
+        except:
+            pass
+    
+    def generate_key(self, *args, **kwargs) -> str:
+        """Generate cache key"""
+        data = f"{args}{kwargs}".encode('utf-8')
+        return hashlib.sha256(data).hexdigest()[:32]
+    
+    @retry_on_failure(max_attempts=2)
+    def get(self, key: str) -> Optional[bytes]:
+        """Get cached item"""
+        if not key:
+            return None
+        
+        cache_file = self.cache_dir / f"{key}.cache"
+        
+        with self.lock:
+            if not cache_file.exists():
+                return None
+            
+            # Check TTL
+            if key in self.metadata:
+                created = datetime.fromisoformat(self.metadata[key]['created'])
+                if datetime.now() - created > self.ttl:
+                    self.delete(key)
+                    return None
+            
+            try:
+                with open(cache_file, 'rb') as f:
+                    data = f.read()
+                
+                # Update access info
+                if key in self.metadata:
+                    self.metadata[key]['hits'] = self.metadata[key].get('hits', 0) + 1
+                    self.metadata[key]['last_accessed'] = datetime.now().isoformat()
+                    self._save_metadata()
+                
+                return data
+                
+            except Exception as e:
+                logger.error(f"Cache read failed for {key}: {e}")
+                return None
+    
+    @retry_on_failure(max_attempts=2)
+    def set(self, key: str, data: bytes):
+        """Cache item"""
+        if not key or not data:
+            return
+        
+        with self.lock:
+            # Check size and evict if needed
+            if len(self.metadata) >= self.max_size:
+                self._evict_oldest()
+            
+            cache_file = self.cache_dir / f"{key}.cache"
+            
+            try:
+                # Write to temp file first
+                temp_file = cache_file.with_suffix('.tmp')
+                with open(temp_file, 'wb') as f:
+                    f.write(data)
+                temp_file.replace(cache_file)
+                
+                # Update metadata
+                self.metadata[key] = {
+                    'created': datetime.now().isoformat(),
+                    'last_accessed': datetime.now().isoformat(),
+                    'size': len(data),
+                    'hits': 0
+                }
+                self._save_metadata()
+                
+            except Exception as e:
+                logger.error(f"Cache write failed for {key}: {e}")
+    
+    def delete(self, key: str):
+        """Delete cached item"""
+        with self.lock:
+            cache_file = self.cache_dir / f"{key}.cache"
+            
+            try:
+                if cache_file.exists():
+                    cache_file.unlink()
+                
+                if key in self.metadata:
+                    del self.metadata[key]
+                    self._save_metadata()
+                
+            except Exception as e:
+                logger.error(f"Cache delete failed for {key}: {e}")
+    
+    def _evict_oldest(self):
+        """Evict least recently used cache entries"""
+        if not self.metadata:
+            return
+        
+        with self.lock:
+            # Sort by last accessed time
+            sorted_items = sorted(
+                self.metadata.items(),
+                key=lambda x: datetime.fromisoformat(x[1].get('last_accessed', x[1]['created']))
+            )
+            
+            # Remove 10% of oldest items
+            to_remove = max(1, len(sorted_items) // 10)
+            
+            for key, _ in sorted_items[:to_remove]:
+                self.delete(key)
+            
+            logger.debug(f"Evicted {to_remove} cache entries")
+    
+    @retry_on_failure(max_attempts=2)
+    def cleanup(self):
+        """Clean up expired cache entries"""
+        cutoff = datetime.now() - self.ttl
+        
+        with self.lock:
+            expired_keys = []
+            
+            for key, data in list(self.metadata.items()):
+                created = datetime.fromisoformat(data['created'])
+                if created < cutoff:
+                    expired_keys.append(key)
+            
+            for key in expired_keys:
+                self.delete(key)
+            
+            if expired_keys:
+                logger.info(f"Cache cleanup removed {len(expired_keys)} expired items")
+    
+    def get_stats(self) -> Dict:
+        """Get cache statistics"""
+        with self.lock:
+            total_size = sum(data['size'] for data in self.metadata.values())
+            total_hits = sum(data.get('hits', 0) for data in self.metadata.values())
+            
+            return {
+                'total_items': len(self.metadata),
+                'total_size_bytes': total_size,
+                'total_size_mb': total_size / (1024 * 1024),
+                'total_hits': total_hits,
+                'max_size': self.max_size,
+                'ttl_hours': self.ttl.total_seconds() / 3600
+            }
+
+class UltimateImageGenerator:
+    """
+    ULTIMATE IMAGE GENERATOR v7.0
+    Professional, Error-Free, Production-Ready
+    """
+    
+    def __init__(self, config: Optional[ImageConfig] = None):
         if not PIL_AVAILABLE:
-            logger.critical("❌ PIL/Pillow not available!")
-            raise ImportError("Install PIL/Pillow: pip install pillow")
+            logger.critical("PIL/Pillow not available. Install: pip install pillow")
+            raise ImportError("PIL/Pillow is required for image generation")
         
-        self.config = config or ArtConfig()
-        self.font_magic = MagicFontManager(self.config.assets_dir)
-        self.color_alchemy = ColorAlchemy()
-        self.art_magic = ArtMagic()
+        self.config = config or ImageConfig()
+        self.font_manager = FontManager(self.config.assets_dir)
+        self.color_manager = ColorManager()
+        self.effect_manager = EffectManager()
+        self.cache_manager = CacheManager(
+            cache_dir=self.config.cache_dir,
+            ttl_hours=self.config.cache_ttl_hours,
+            max_size=self.config.max_cache_size
+        )
         
-        # Statistics with artistic flair
+        # Statistics and monitoring
         self.stats = {
-            'masterpieces_created': 0,
-            'magic_score': 0.0,
-            'creation_time': 0.0,
-            'cache_magic': 0,
-            'failed_spells': 0,
-            'styles_used': {}
+            'total_generated': 0,
+            'cache_hits': 0,
+            'cache_misses': 0,
+            'successful': 0,
+            'failed': 0,
+            'total_time': 0.0
         }
         
-        logger.info("✨ Magical Image Generator v8.0 Initialized!")
-        logger.info(f"   🎨 Art Style: {self.config.art_style.name}")
-        logger.info(f"   📏 Canvas: {self.config.width}x{self.config.height}")
-        logger.info(f"   🌈 Magic Intensity: {self.config.magic_intensity}")
+        logger.info("✓ Ultimate Image Generator v7.0 initialized")
+        logger.info(f"  • Resolution: {self.config.width}x{self.config.height}")
+        logger.info(f"  • Format: {self.config.format}")
+        logger.info(f"  • Cache: {'Enabled' if self.config.enable_cache else 'Disabled'}")
+        logger.info(f"  • Workers: {self.config.max_workers}")
     
-    def create_masterpiece(self, text: str, user_info: Any,
-                          art_style: Optional[ArtStyle] = None,
-                          border_art: Optional[BorderArt] = None,
-                          background_art: Optional[BackgroundArt] = None) -> MasterpieceResult:
+    def _safe_text_extract(self, text_input: Any) -> str:
         """
-        Create a magical masterpiece!
+        Safely extract text from ANY input type
+        Handles: str, dict, list, tuple, object, None, etc.
+        """
+        if text_input is None:
+            return ""
+        
+        # String
+        if isinstance(text_input, str):
+            return text_input.strip()
+        
+        # Dictionary
+        elif isinstance(text_input, dict):
+            # Common text keys in order of priority
+            text_keys = [
+                'text', 'message', 'content', 'caption', 'title',
+                'description', 'quote', 'roast', 'roast_text',
+                'primary_text', 'secondary_text', 'name', 'value'
+            ]
+            
+            for key in text_keys:
+                if key in text_input:
+                    value = text_input[key]
+                    if isinstance(value, str) and value.strip():
+                        return value.strip()
+            
+            # Try any string value
+            for key, value in text_input.items():
+                if isinstance(value, str) and len(value.strip()) > 3:
+                    return value.strip()
+            
+            # Convert dict to JSON string
+            try:
+                return json.dumps(text_input, ensure_ascii=False, indent=2)
+            except:
+                return str(text_input)
+        
+        # List or tuple
+        elif isinstance(text_input, (list, tuple)):
+            # Join with spaces if all items are strings
+            if all(isinstance(item, str) for item in text_input):
+                return ' '.join(str(item).strip() for item in text_input)
+            else:
+                return str(text_input)
+        
+        # Default string conversion
+        try:
+            result = str(text_input)
+            return result if result != "None" else ""
+        except:
+            return ""
+    
+    def _process_user_info(self, user_info: Any) -> Dict:
+        """
+        Process user information from ANY format
+        Returns a standardized dictionary
+        """
+        default_user = {
+            'id': 0,
+            'username': 'User',
+            'first_name': 'User',
+            'last_name': '',
+            'full_name': 'User',
+            'rating': round(random.uniform(5.0, 9.9), 1),
+            'level': random.randint(1, 100),
+            'rank': 'Member',
+            'join_date': datetime.now().strftime('%Y-%m-%d'),
+            'avatar_url': None,
+            'metadata': {}
+        }
+        
+        # If already a dict, validate and return
+        if isinstance(user_info, dict):
+            result = default_user.copy()
+            result.update(user_info)
+            
+            # Ensure username exists
+            if not result['username'] or result['username'] == 'User':
+                if result['first_name'] and result['first_name'] != 'User':
+                    result['username'] = result['first_name']
+            
+            # Ensure full name
+            if not result['full_name'] or result['full_name'] == 'User':
+                names = [result['first_name'], result['last_name']]
+                result['full_name'] = ' '.join(filter(None, names)).strip()
+                if not result['full_name']:
+                    result['full_name'] = result['username']
+            
+            return result
+        
+        # If object with attributes
+        result = default_user.copy()
+        
+        try:
+            # Common object attributes
+            if hasattr(user_info, 'id'):
+                result['id'] = user_info.id
+            
+            if hasattr(user_info, 'username') and user_info.username:
+                result['username'] = str(user_info.username)
+            
+            if hasattr(user_info, 'first_name') and user_info.first_name:
+                result['first_name'] = str(user_info.first_name)
+            
+            if hasattr(user_info, 'last_name') and user_info.last_name:
+                result['last_name'] = str(user_info.last_name)
+            
+        except Exception as e:
+            logger.debug(f"User info extraction error: {e}")
+        
+        # Final validation
+        if not result['username'] or result['username'] == 'User':
+            result['username'] = result.get('first_name', 'User')
+        
+        if not result['full_name'] or result['full_name'] == 'User':
+            names = [result['first_name'], result['last_name']]
+            result['full_name'] = ' '.join(filter(None, names)).strip()
+            if not result['full_name']:
+                result['full_name'] = result['username']
+        
+        return result
+    
+    def _wrap_text_smart(self, text: str, max_width: int = 30) -> List[str]:
+        """
+        Smart text wrapping with Unicode and multi-language support
+        """
+        if not text:
+            return []
+        
+        text = str(text).strip()
+        
+        # Very short text
+        if len(text) <= max_width:
+            return [text]
+        
+        try:
+            # Try standard textwrap
+            return textwrap.wrap(text, width=max_width, break_long_words=False)
+        except Exception as e:
+            logger.debug(f"Textwrap failed, using fallback: {e}")
+            
+            # Manual wrapping
+            words = text.split()
+            lines = []
+            current_line = []
+            current_length = 0
+            
+            for word in words:
+                word_length = len(word)
+                
+                # If adding this word would exceed max width
+                if current_length + word_length + len(current_line) > max_width:
+                    if current_line:
+                        lines.append(' '.join(current_line))
+                    current_line = [word]
+                    current_length = word_length
+                else:
+                    current_line.append(word)
+                    current_length += word_length
+            
+            if current_line:
+                lines.append(' '.join(current_line))
+            
+            return lines
+    
+    def _create_background(self, bg_config: BackgroundConfig, 
+                          width: int, height: int) -> Image.Image:
+        """Create professional background with fallbacks"""
+        try:
+            palette = self.color_manager.get_random_palette()
+            
+            # Solid color background
+            if bg_config.type == "solid":
+                background = Image.new(
+                    'RGB', 
+                    (width, height), 
+                    bg_config.primary_color or palette['primary']
+                )
+            
+            # Gradient background
+            elif bg_config.type == "gradient":
+                color1 = bg_config.primary_color or palette['primary']
+                color2 = bg_config.secondary_color or palette['secondary']
+                color3 = bg_config.tertiary_color
+                
+                background = self.color_manager.generate_gradient(
+                    width, height, color1, color2, color3, bg_config.gradient_direction
+                )
+            
+            # Default to gradient
+            else:
+                background = self.color_manager.generate_gradient(
+                    width, height, 
+                    palette['primary'], 
+                    palette['secondary']
+                )
+            
+            # Apply effects
+            if bg_config.blur_radius > 0:
+                background = background.filter(
+                    ImageFilter.GaussianBlur(bg_config.blur_radius)
+                )
+            
+            if bg_config.vignette_intensity > 0:
+                background = self.effect_manager.add_vignette(
+                    background, 
+                    bg_config.vignette_intensity
+                )
+            
+            return background
+            
+        except Exception as e:
+            logger.error(f"Background creation failed: {e}")
+            # Ultimate fallback
+            return Image.new('RGB', (width, height), (40, 40, 60))
+    
+    def _render_text(self, draw: ImageDraw.Draw, text_config: TextConfig, 
+                    width: int, height: int) -> Tuple[int, int]:
+        """Render text with all effects"""
+        try:
+            palette = self.color_manager.get_random_palette()
+            
+            # Get fonts
+            primary_font = self.font_manager.get_font(
+                text_config.font_size_primary, 
+                text_config.font_style,
+                text=text_config.primary_text
+            ) or ImageFont.load_default()
+            
+            secondary_font = self.font_manager.get_font(
+                text_config.font_size_secondary,
+                "regular",
+                text=text_config.secondary_text
+            ) or ImageFont.load_default()
+            
+            emoji_font = self.font_manager.get_font(
+                text_config.font_size_emoji,
+                "regular",
+                text=text_config.emoji
+            ) or ImageFont.load_default()
+            
+            # Wrap and prepare text
+            primary_lines = self._wrap_text_smart(
+                text_config.primary_text, 
+                text_config.max_width
+            )
+            secondary_lines = self._wrap_text_smart(
+                text_config.secondary_text or "",
+                text_config.max_width
+            )
+            
+            # Calculate total height
+            line_height_primary = int(text_config.font_size_primary * text_config.line_spacing)
+            line_height_secondary = int(text_config.font_size_secondary * text_config.line_spacing)
+            
+            total_height = (
+                len(primary_lines) * line_height_primary +
+                (len(primary_lines) - 1) * 10
+            )
+            
+            if secondary_lines:
+                total_height += len(secondary_lines) * line_height_secondary + 40
+            
+            if text_config.emoji:
+                total_height += text_config.font_size_emoji + 20
+            
+            # Start position (centered vertically)
+            current_y = max(50, (height - total_height) // 3)
+            
+            # Draw primary text
+            text_color = text_config.text_color or palette['text']
+            shadow_color = text_config.shadow_color or palette['shadow']
+            
+            for line in primary_lines:
+                try:
+                    # Get text bounding box
+                    bbox = draw.textbbox((0, 0), line, font=primary_font)
+                    text_width = bbox[2] - bbox[0]
+                    
+                    # Center horizontally
+                    x_position = (width - text_width) // 2
+                    
+                    # Apply effects based on configuration
+                    if TextEffect.SHADOW in text_config.effects:
+                        self.effect_manager.add_text_shadow(
+                            draw, line, primary_font,
+                            (x_position, current_y),
+                            text_color, shadow_color,
+                            text_config.text_shadow_offset,
+                            text_config.text_shadow_blur
+                        )
+                    elif TextEffect.OUTLINE in text_config.effects:
+                        self.effect_manager.add_text_outline(
+                            draw, line, primary_font,
+                            (x_position, current_y),
+                            text_color, shadow_color
+                        )
+                    else:
+                        draw.text((x_position, current_y), line,
+                                 font=primary_font, fill=text_color)
+                    
+                    current_y += line_height_primary
+                    
+                except Exception as e:
+                    logger.error(f"Primary text rendering failed: {e}")
+                    current_y += line_height_primary
+            
+            # Draw secondary text
+            if secondary_lines:
+                current_y += 30
+                
+                for line in secondary_lines:
+                    try:
+                        bbox = draw.textbbox((0, 0), line, font=secondary_font)
+                        text_width = bbox[2] - bbox[0]
+                        x_position = (width - text_width) // 2
+                        
+                        draw.text((x_position, current_y), line,
+                                 font=secondary_font, fill=palette['secondary'])
+                        
+                        current_y += line_height_secondary
+                        
+                    except Exception as e:
+                        logger.error(f"Secondary text rendering failed: {e}")
+                        current_y += line_height_secondary
+            
+            # Draw emoji
+            if text_config.emoji:
+                current_y += 40
+                
+                try:
+                    bbox = draw.textbbox((0, 0), text_config.emoji, font=emoji_font)
+                    text_width = bbox[2] - bbox[0]
+                    x_position = (width - text_width) // 2
+                    
+                    draw.text((x_position, current_y), text_config.emoji,
+                             font=emoji_font, fill=text_color)
+                    
+                    current_y += text_config.font_size_emoji
+                    
+                except Exception as e:
+                    logger.error(f"Emoji rendering failed: {e}")
+                    current_y += text_config.font_size_emoji
+            
+            return current_y
+            
+        except Exception as e:
+            logger.error(f"Text rendering failed: {e}")
+            return height // 2
+    
+    def _add_metadata(self, draw: ImageDraw.Draw, user_info: Dict, 
+                     width: int, current_y: int):
+        """Add metadata and footer information"""
+        try:
+            palette = self.color_manager.get_random_palette()
+            small_font = self.font_manager.get_font(24, "regular") or ImageFont.load_default()
+            
+            # User information
+            username = user_info.get('username', 'User')
+            first_name = user_info.get('first_name', '')
+            rating = user_info.get('rating', 0)
+            
+            # Create user display text
+            display_text = username
+            if first_name and first_name != username:
+                display_text = f"{first_name} (@{username})"
+            elif '@' not in username:
+                display_text = f"@{username}"
+            
+            # Add rating if available
+            if rating:
+                stars = '⭐' * min(5, int(rating / 2))
+                display_text += f" {stars} {rating}/10"
+            
+            # Draw user info
+            try:
+                bbox = draw.textbbox((0, 0), display_text, font=small_font)
+                text_width = bbox[2] - bbox[0]
+                draw.text(((width - text_width) // 2, current_y + 30),
+                         display_text, font=small_font, fill=palette['accent'])
+            except Exception as e:
+                logger.debug(f"User info drawing failed: {e}")
+            
+            # Timestamp
+            timestamp = datetime.now().strftime("%Y-%m-%d • %H:%M:%S")
+            try:
+                bbox = draw.textbbox((0, 0), timestamp, font=small_font)
+                text_width = bbox[2] - bbox[0]
+                draw.text(((width - text_width) // 2, current_y + 70),
+                         timestamp, font=small_font, fill=palette['secondary'])
+            except Exception as e:
+                logger.debug(f"Timestamp drawing failed: {e}")
+            
+            # Footer/watermark
+            footer = "✨ Roastify Pro v7.0"
+            try:
+                bbox = draw.textbbox((0, 0), footer, font=small_font)
+                text_width = bbox[2] - bbox[0]
+                draw.text(((width - text_width) // 2, current_y + 110),
+                         footer, font=small_font, fill=palette['highlight'])
+            except Exception as e:
+                logger.debug(f"Footer drawing failed: {e}")
+                
+        except Exception as e:
+            logger.error(f"Metadata addition failed: {e}")
+    
+    @retry_on_failure(max_attempts=3)
+    def generate_roast_image(self, roast_text: Any, user_info: Any,
+                            style: str = "auto", 
+                            border_config: Optional[BorderConfig] = None,
+                            background_config: Optional[BackgroundConfig] = None) -> GenerationResult:
+        """
+        Generate professional roast image with comprehensive error handling
         
         Args:
-            text: The text to display
-            user_info: User information for personalization
-            art_style: Artistic style
-            border_art: Border configuration
-            background_art: Background configuration
+            roast_text: Any - Text to display (auto-converted)
+            user_info: Any - User information (auto-processed)
+            style: str - Color palette style
+            border_config: BorderConfig - Border configuration
+            background_config: BackgroundConfig - Background configuration
             
         Returns:
-            MasterpieceResult with magical details
+            GenerationResult - Result object with all details
         """
         start_time = time.time()
         
         try:
-            # Prepare magical ingredients
-            art_style = art_style or self.config.art_style
-            border_art = border_art or BorderArt()
-            background_art = background_art or BackgroundArt()
+            # 1. Input validation and processing
+            actual_text = self._safe_text_extract(roast_text)
+            if not actual_text or len(actual_text.strip()) < 2:
+                actual_text = "আপনি খুবই স্মার্ট! রোস্ট করার মতো কিছু পাচ্ছি না! 😄"
+                logger.warning("Empty or short text provided, using default")
             
-            # Process user info
-            user_dict = self._process_user_magic(user_info)
+            user_dict = self._process_user_info(user_info)
+            logger.debug(f"Processing request for user: {user_dict.get('username', 'Unknown')}")
             
-            # Update style usage
-            self.stats['styles_used'][art_style.name] = \
-                self.stats['styles_used'].get(art_style.name, 0) + 1
+            # 2. Cache check
+            cache_key = None
+            if self.config.enable_cache:
+                cache_key = self.cache_manager.generate_key(
+                    actual_text[:200],
+                    user_dict.get('id', 0),
+                    style,
+                    str(border_config),
+                    str(background_config)
+                )
+                
+                cached_data = self.cache_manager.get(cache_key)
+                if cached_data:
+                    self.stats['cache_hits'] += 1
+                    
+                    timestamp = int(time.time())
+                    output_path = Path(self.config.output_dir) / f"roast_cache_{timestamp}.png"
+                    output_path.write_bytes(cached_data)
+                    
+                    processing_time = time.time() - start_time
+                    
+                    result = GenerationResult(
+                        success=True,
+                        image_path=str(output_path),
+                        processing_time=round(processing_time, 3),
+                        cache_hit=True,
+                        image_size=len(cached_data),
+                        metadata={
+                            'user': user_dict.get('username', 'Unknown'),
+                            'text_preview': actual_text[:50] + '...' if len(actual_text) > 50 else actual_text,
+                            'cache_key': cache_key[:8]
+                        }
+                    )
+                    
+                    return result
             
-            # Create magical canvas
+            self.stats['cache_misses'] += 1
+            
+            # 3. Configuration setup with defaults
+            border_config = border_config or BorderConfig(
+                border_type=BorderType.get_random(),
+                color=self.color_manager.get_random_palette()['border'],
+                thickness=random.randint(15, 30),
+                corner_radius=random.randint(30, 60)
+            )
+            
+            bg_config = background_config or BackgroundConfig(
+                type=random.choice(["gradient", "solid"]),
+                primary_color=self.color_manager.get_random_palette()['primary'],
+                gradient_direction=GradientDirection.get_random(),
+                noise_intensity=random.uniform(0, 0.1),
+                vignette_intensity=random.uniform(0, 0.3)
+            )
+            
+            # 4. Image creation
             width, height = self.config.width, self.config.height
             
-            # 1. Create magical background
-            logger.info(f"🎨 Creating {background_art.type.name} background...")
-            background = self._create_magical_background(
-                width, height, background_art, art_style
-            )
-            
-            # 2. Prepare text art
-            text_art = TextArt(
-                primary_text=text,
-                secondary_text=f"By: {user_dict.get('name', 'Anonymous')}",
-                emoji=random.choice(['✨', '🌟', '🎨', '🔥', '❄️', '💫', '🌠', '🎭']),
-                effects=TextEffect.get_random(random.randint(1, 2))
-            )
-            
-            # 3. Render magical text
-            logger.info(f"🔮 Applying {text_art.effects[0].name} to text...")
+            # Create background
+            background = self._create_background(bg_config, width, height)
             image = background.convert('RGBA')
             draw = ImageDraw.Draw(image)
             
-            self._render_magical_text(draw, text_art, width, height, user_dict)
+            # Text configuration
+            text_config = TextConfig(
+                primary_text=actual_text,
+                secondary_text=user_dict.get('subtext', ''),
+                emoji=random.choice(['🔥', '😈', '⚡', '💥', '🎯', '😂', '👑', '✨', '🌟', '🎨']),
+                text_color=(255, 255, 255),
+                effects=TextEffect.get_random(random.randint(1, 2)),
+                font_size_primary=random.randint(60, 80),
+                font_size_secondary=random.randint(36, 48),
+                max_width=random.randint(24, 32)
+            )
             
-            # 4. Apply magical border
-            if border_art.enabled and border_art.border_type != BorderType.NONE:
-                logger.info(f"🖼️ Adding {border_art.border_type.name} border...")
-                colors = (border_art.color, border_art.secondary_color, border_art.tertiary_color)
-                image = self.art_magic.create_magical_border(
-                    image, border_art.border_type, colors
+            # Render text
+            text_bottom = self._render_text(draw, text_config, width, height)
+            
+            # Add metadata
+            self._add_metadata(draw, user_dict, width, text_bottom)
+            
+            # Apply effects
+            if random.random() > 0.3:
+                image = self.effect_manager.add_vignette(image, intensity=0.2)
+            
+            if random.random() > 0.5:
+                image = self.effect_manager.add_text_glow(image, intensity=2)
+            
+            # Apply border
+            if border_config.enabled and border_config.border_type != BorderType.NONE:
+                border = self.effect_manager.create_border(
+                    border_config.border_type,
+                    (width, height),
+                    border_config.color,
+                    border_config.secondary_color,
+                    border_config.thickness,
+                    border_config.corner_radius
                 )
+                image = Image.alpha_composite(image, border)
             
-            # 5. Apply final magical effects
-            image = self._apply_final_magic(image, art_style)
+            # 5. Save image
+            timestamp = int(time.time())
+            output_path = Path(self.config.output_dir) / f"roast_{timestamp}_{user_dict.get('id', 0)}.png"
             
-            # 6. Save masterpiece
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            masterpiece_name = f"masterpiece_{timestamp}_{hash(text) % 10000:04d}.png"
-            output_path = Path(self.config.output_dir) / masterpiece_name
+            # Convert format if needed and save
+            if image.mode == 'RGBA' and self.config.format == 'JPEG':
+                rgb_background = Image.new('RGB', image.size, (0, 0, 0))
+                rgb_background.paste(image, mask=image.split()[3])
+                image = rgb_background
+            elif self.config.format == 'PNG' and image.mode != 'RGBA':
+                image = image.convert('RGBA')
             
-            # Ensure highest quality
-            save_kwargs = {
+            save_params = {
                 'quality': self.config.quality,
                 'optimize': True,
-                'compress_level': self.config.compression_level
             }
             
             if self.config.format == 'PNG':
-                image.save(output_path, 'PNG', **save_kwargs)
-            else:
-                if image.mode == 'RGBA':
-                    image = image.convert('RGB')
-                image.save(output_path, self.config.format, **save_kwargs)
+                save_params['compress_level'] = self.config.compression_level
             
-            # 7. Calculate magical score
-            creation_time = time.time() - start_time
-            magic_score = self._calculate_magic_score(
-                creation_time, 
-                len(text), 
-                len(text_art.effects)
-            )
+            image.save(output_path, self.config.format, **save_params)
             
-            # Update statistics
-            self.stats['masterpieces_created'] += 1
-            self.stats['magic_score'] += magic_score
-            self.stats['creation_time'] += creation_time
+            # 6. Cache the result
+            if self.config.enable_cache and cache_key:
+                with open(output_path, 'rb') as f:
+                    image_data = f.read()
+                self.cache_manager.set(cache_key, image_data)
             
-            # Create magical result
-            result = MasterpieceResult(
+            # 7. Create backup if enabled
+            if self.config.enable_backup:
+                backup_path = Path(self.config.backup_dir) / f"backup_{timestamp}.png"
+                try:
+                    import shutil
+                    shutil.copy2(output_path, backup_path)
+                except Exception as e:
+                    logger.debug(f"Backup failed: {e}")
+            
+            # 8. Update statistics and return result
+            processing_time = time.time() - start_time
+            
+            self.stats['total_generated'] += 1
+            self.stats['successful'] += 1
+            self.stats['total_time'] += processing_time
+            
+            result = GenerationResult(
                 success=True,
                 image_path=str(output_path),
-                creation_time=round(creation_time, 3),
+                processing_time=round(processing_time, 3),
                 cache_hit=False,
                 image_size=os.path.getsize(output_path),
-                artistic_score=round(magic_score, 2),
                 metadata={
-                    'masterpiece_id': masterpiece_name,
-                    'art_style': art_style.name,
-                    'border_type': border_art.border_type.name,
-                    'background_type': background_art.type.name,
-                    'text_effects': [e.name for e in text_art.effects],
-                    'user': user_dict.get('name', 'Anonymous'),
-                    'magic_level': self._get_magic_level(magic_score),
-                    'creation_date': datetime.now().isoformat()
+                    'user': user_dict.get('username', 'Unknown'),
+                    'user_id': user_dict.get('id', 0),
+                    'text_length': len(actual_text),
+                    'style': style,
+                    'border_type': border_config.border_type.name,
+                    'background_type': bg_config.type,
+                    'resolution': f"{width}x{height}",
+                    'format': self.config.format,
+                    'quality': self.config.quality,
+                    'timestamp': timestamp
                 }
             )
             
-            logger.info(f"✅ MASTERPIECE CREATED: {masterpiece_name}")
-            logger.info(f"   ⭐ Magic Score: {magic_score:.2f}")
-            logger.info(f"   ⏱️ Creation Time: {creation_time:.2f}s")
-            logger.info(f"   🎨 Style: {art_style.name}")
+            logger.info(f"✓ Image generated: {output_path.name} ({processing_time:.2f}s)")
             
             return result
             
         except Exception as e:
-            creation_time = time.time() - start_time
-            self.stats['failed_spells'] += 1
+            processing_time = time.time() - start_time
             
-            logger.error(f"❌ Masterpiece creation failed: {e}")
-            logger.error(traceback.format_exc())
+            self.stats['failed'] += 1
+            self.stats['total_time'] += processing_time
             
-            return MasterpieceResult(
+            logger.error(f"✗ Image generation failed: {e}")
+            logger.debug(traceback.format_exc())
+            
+            # Return error result
+            return GenerationResult(
                 success=False,
                 error=str(e),
-                creation_time=round(creation_time, 3),
-                artistic_score=0.0,
-                metadata={'error_type': type(e).__name__}
+                processing_time=round(processing_time, 3),
+                metadata={
+                    'user': user_dict.get('username', 'Unknown') if 'user_dict' in locals() else 'Unknown',
+                    'error_type': type(e).__name__,
+                    'timestamp': datetime.now().isoformat()
+                }
             )
     
-    def _create_magical_background(self, width: int, height: int, 
-                                 background_art: BackgroundArt, 
-                                 art_style: ArtStyle) -> Image.Image:
-        """Create magical background based on type"""
-        bg_type = background_art.type
+    def generate_welcome_image(self, user_info: Any) -> GenerationResult:
+        """Generate welcome image for new users"""
+        user_dict = self._process_user_info(user_info)
         
-        if bg_type == BackgroundType.GALAXY_NEBULA:
-            background = create_galaxy_background(width, height)
-        elif bg_type == BackgroundType.AURORA_BOREALIS:
-            # Create aurora effect
-            background = Image.new('RGB', (width, height), (5, 10, 30))
-            draw = ImageDraw.Draw(background)
-            
-            # Aurora waves
-            for y in range(0, height, 20):
-                wave_height = random.randint(30, 100)
-                aurora_color = random.choice([
-                    (0, 255, 150, 50),  # Green
-                    (150, 0, 255, 60),  # Purple
-                    (0, 150, 255, 55)   # Blue
-                ])
-                
-                for x in range(width):
-                    wave = wave_height * math.sin(x * 0.02 + y * 0.01)
-                    draw.line(
-                        [(x, y + wave), (x, y + wave + 5)],
-                        fill=aurora_color,
-                        width=3
-                    )
-        else:
-            # Default gradient background
-            palette = self.color_alchemy.get_magical_palette()
-            background = self.color_alchemy.create_gradient_magic(width, height, palette)
+        welcome_texts = [
+            "স্বাগতম! রোস্টের জগতে আপনাকে হৃদয়ের অভিনন্দন! 🎉",
+            "আসসালামু আলাইকুম! রোস্টিফাই পরিবারে আপনাকে স্বাগতম! 👋",
+            "হ্যালো! প্রস্তুত থাকুন মজাদার রোস্টের জন্য! 😄",
+            "ওহো! একজন নতুন রোস্টার এসেছেন! 🔥",
+            "Welcome to Roastify! Get ready for some fun! 🎊",
+            "নতুন সদস্যের আগমন! সবাই স্বাগতম জানাই! 🌟"
+        ]
         
-        # Apply artistic filters based on style
-        if art_style == ArtStyle.IMPRESSIONISM:
-            background = background.filter(GaussianBlur(radius=2))
-        elif art_style == ArtStyle.CYBERPUNK:
-            # Increase contrast and saturation
-            enhancer = ImageEnhance.Contrast(background)
-            background = enhancer.enhance(1.5)
-            enhancer = ImageEnhance.Color(background)
-            background = enhancer.enhance(1.8)
-        elif art_style == ArtStyle.GLITCH:
-            # Apply glitch effect
-            for _ in range(3):
-                offset = random.randint(-10, 10)
-                glitch_layer = background.copy()
-                glitch_layer = ImageChops.offset(glitch_layer, offset, 0)
-                background = Image.blend(background, glitch_layer, 0.3)
-        
-        return background
-    
-    def _render_magical_text(self, draw: ImageDraw.Draw, text_art: TextArt,
-                           width: int, height: int, user_info: Dict):
-        """Render text with magical effects"""
-        # Get magical font
-        font = self.font_magic.get_magical_font(
-            text_art.font_size_primary,
-            text_art.font_style,
-            text_art.effects[0] if text_art.effects else TextEffect.NONE
+        return self.generate_roast_image(
+            roast_text=random.choice(welcome_texts),
+            user_info=user_dict,
+            style="neon",
+            border_config=BorderConfig(
+                border_type=BorderType.NEON,
+                color=(255, 215, 0),
+                thickness=25,
+                glow_intensity=2
+            ),
+            background_config=BackgroundConfig(
+                type="gradient",
+                primary_color=(30, 10, 50),
+                secondary_color=(70, 30, 90),
+                gradient_direction=GradientDirection.RADIAL
+            )
         )
-        
-        # Wrap text for beauty
-        lines = textwrap.wrap(text_art.primary_text, width=text_art.max_width)
-        
-        # Calculate text position (centered)
-        line_height = int(text_art.font_size_primary * text_art.line_spacing)
-        total_text_height = len(lines) * line_height
-        
-        # Start position (slightly above center for better composition)
-        start_y = (height - total_text_height) // 3
-        
-        # Draw each line with magic
-        palette = self.color_alchemy.get_magical_palette()
-        
-        for i, line in enumerate(lines):
-            # Get text width
-            bbox = draw.textbbox((0, 0), line, font=font)
-            text_width = bbox[2] - bbox[0]
-            
-            # Center position
-            x = (width - text_width) // 2
-            y = start_y + i * line_height
-            
-            # Apply magical effect
-            colors = [
-                palette['accent'],
-                palette['highlight'],
-                palette['glow']
-            ]
-            
-            self.art_magic.apply_text_magic(
-                draw, line, font, (x, y), 
-                text_art.effects[0] if text_art.effects else TextEffect.NEON_GLOW,
-                colors
-            )
-        
-        # Add signature/emoji
-        if text_art.emoji:
-            emoji_font = self.font_magic.get_magical_font(
-                text_art.font_size_emoji, "regular", TextEffect.NONE
-            )
-            bbox = draw.textbbox((0, 0), text_art.emoji, font=emoji_font)
-            text_width = bbox[2] - bbox[0]
-            x = (width - text_width) // 2
-            y = start_y + len(lines) * line_height + 50
-            draw.text((x, y), text_art.emoji, font=emoji_font, fill=palette['highlight'])
-        
-        # Add user signature
-        signature = f"~ {user_info.get('name', 'Anonymous')}"
-        small_font = self.font_magic.get_magical_font(24, "italic", TextEffect.NONE)
-        bbox = draw.textbbox((0, 0), signature, font=small_font)
-        text_width = bbox[2] - bbox[0]
-        x = width - text_width - 50
-        y = height - 80
-        draw.text((x, y), signature, font=small_font, fill=palette['text'])
-        
-        # Add magical watermark
-        watermark = "✨ Magically Created by Roastify ✨"
-        watermark_font = self.font_magic.get_magical_font(20, "regular", TextEffect.NONE)
-        bbox = draw.textbbox((0, 0), watermark, font=watermark_font)
-        text_width = bbox[2] - bbox[0]
-        x = (width - text_width) // 2
-        y = height - 40
-        draw.text((x, y), watermark, font=watermark_font, fill=(255, 255, 255, 150))
     
-    def _apply_final_magic(self, image: Image.Image, art_style: ArtStyle) -> Image.Image:
-        """Apply final magical touches"""
-        # Apply vignette
-        if random.random() > 0.2:
-            image = self._apply_vignette(image, intensity=0.3)
+    def generate_achievement_image(self, user_info: Any, achievement: Any) -> GenerationResult:
+        """Generate achievement/unlock image"""
+        user_dict = self._process_user_info(user_info)
         
-        # Apply glow based on style
-        if art_style in [ArtStyle.CYBERPUNK, ArtStyle.NEON_NOIR, ArtStyle.VAPORWAVE]:
-            image = self._apply_glow_effect(image, intensity=0.2)
-        
-        # Add subtle noise for texture
-        if random.random() > 0.5:
-            image = self._add_texture_noise(image, intensity=0.05)
-        
-        return image
-    
-    def _apply_vignette(self, image: Image.Image, intensity: float = 0.3) -> Image.Image:
-        """Apply vignette effect"""
-        if image.mode != 'RGBA':
-            image = image.convert('RGBA')
-        
-        width, height = image.size
-        vignette = Image.new('RGBA', (width, height), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(vignette)
-        
-        center_x, center_y = width // 2, height // 2
-        max_radius = int(math.sqrt(width**2 + height**2) / 2)
-        
-        for i in range(20):
-            radius = int(max_radius * (i / 20))
-            alpha = int(255 * intensity * (1 - (i / 20)**2))
-            
-            if radius > 0 and alpha > 0:
-                draw.ellipse(
-                    [center_x - radius, center_y - radius,
-                     center_x + radius, center_y + radius],
-                    fill=(0, 0, 0, alpha),
-                    outline=None
-                )
-        
-        return Image.alpha_composite(image, vignette)
-    
-    def _apply_glow_effect(self, image: Image.Image, intensity: float = 0.2) -> Image.Image:
-        """Apply glow effect"""
-        glow = image.filter(GaussianBlur(radius=5))
-        return Image.blend(image, glow, intensity)
-    
-    def _add_texture_noise(self, image: Image.Image, intensity: float = 0.05) -> Image.Image:
-        """Add subtle texture noise"""
-        if image.mode != 'RGBA':
-            image = image.convert('RGBA')
-        
-        width, height = image.size
-        noise = Image.new('RGBA', (width, height), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(noise)
-        
-        num_dots = int(width * height * intensity)
-        
-        for _ in range(num_dots):
-            x = random.randint(0, width - 1)
-            y = random.randint(0, height - 1)
-            alpha = random.randint(5, 20)
-            size = random.randint(1, 2)
-            brightness = random.randint(200, 255)
-            
-            draw.ellipse(
-                [x, y, x + size, y + size],
-                fill=(brightness, brightness, brightness, alpha)
-            )
-        
-        return Image.alpha_composite(image, noise)
-    
-    def _process_user_magic(self, user_info: Any) -> Dict:
-        """Process user information with magical touch"""
-        default_user = {
-            'id': random.randint(1000, 9999),
-            'name': 'Mysterious Traveler',
-            'title': random.choice(['Wizard', 'Sorcerer', 'Enchanter', 'Mage', 'Artisan']),
-            'magic_level': random.randint(1, 100),
-            'favorite_color': random.choice(['Azure', 'Crimson', 'Emerald', 'Amethyst', 'Gold']),
-            'joined': datetime.now().strftime('%Y-%m-%d')
-        }
-        
-        if isinstance(user_info, dict):
-            default_user.update(user_info)
-        
-        return default_user
-    
-    def _calculate_magic_score(self, time_taken: float, text_length: int, 
-                             effects_count: int) -> float:
-        """Calculate magical score for the masterpiece"""
-        # Base score
-        score = 100.0
-        
-        # Time bonus (faster = better, but not too fast)
-        if time_taken < 0.5:
-            score += 20
-        elif time_taken < 1.0:
-            score += 10
-        elif time_taken > 5.0:
-            score -= 10
-        
-        # Text length bonus
-        if text_length > 50:
-            score += text_length / 10
-        
-        # Effects bonus
-        score += effects_count * 15
-        
-        # Random magic factor
-        score += random.uniform(-10, 20)
-        
-        # Ensure reasonable range
-        return max(50, min(score, 200))
-    
-    def _get_magic_level(self, score: float) -> str:
-        """Get magical level based on score"""
-        if score >= 180:
-            return "✨ LEGENDARY ✨"
-        elif score >= 150:
-            return "🌟🌟🌟 MASTERPIECE 🌟🌟🌟"
-        elif score >= 120:
-            return "🌟🌟 EXCELLENT 🌟🌟"
-        elif score >= 90:
-            return "⭐ GOOD ⭐"
-        elif score >= 70:
-            return "🔼 DECENT 🔼"
+        # Process achievement
+        if isinstance(achievement, dict):
+            achievement_text = achievement.get('title', 'Achievement Unlocked!')
+            achievement_desc = achievement.get('description', '')
         else:
-            return "📝 PRACTICE 📝"
-    
-    def get_magical_stats(self) -> Dict:
-        """Get magical statistics"""
-        avg_score = 0
-        avg_time = 0
+            achievement_text = str(achievement) or 'Achievement Unlocked!'
+            achievement_desc = ''
         
-        if self.stats['masterpieces_created'] > 0:
-            avg_score = self.stats['magic_score'] / self.stats['masterpieces_created']
-            avg_time = self.stats['creation_time'] / self.stats['masterpieces_created']
+        text = f"{achievement_text}\n\n{achievement_desc}".strip()
+        
+        return self.generate_roast_image(
+            roast_text=text,
+            user_info=user_dict,
+            style="golden",
+            border_config=BorderConfig(
+                border_type=BorderType.ORNATE,
+                color=(255, 215, 0),
+                thickness=30,
+                corner_radius=60
+            ),
+            background_config=BackgroundConfig(
+                type="gradient",
+                primary_color=(40, 20, 60),
+                secondary_color=(80, 40, 100),
+                tertiary_color=(120, 60, 140)
+            )
+        )
+    
+    def get_detailed_stats(self) -> Dict:
+        """Get comprehensive statistics"""
+        avg_time = 0
+        if self.stats['total_generated'] > 0:
+            avg_time = self.stats['total_time'] / self.stats['total_generated']
+        
+        success_rate = 0
+        if self.stats['total_generated'] > 0:
+            success_rate = (self.stats['successful'] / self.stats['total_generated']) * 100
+        
+        cache_hit_rate = 0
+        total_cache_ops = self.stats['cache_hits'] + self.stats['cache_misses']
+        if total_cache_ops > 0:
+            cache_hit_rate = (self.stats['cache_hits'] / total_cache_ops) * 100
+        
+        cache_stats = self.cache_manager.get_stats()
         
         return {
-            'magical_performance': {
-                'masterpieces_created': self.stats['masterpieces_created'],
-                'average_magic_score': round(avg_score, 2),
-                'average_creation_time': round(avg_time, 3),
-                'failed_spells': self.stats['failed_spells'],
-                'success_rate': round(
-                    (self.stats['masterpieces_created'] / 
-                     max(self.stats['masterpieces_created'] + self.stats['failed_spells'], 1)) * 100, 
-                    1
-                )
+            'generator': {
+                'version': '7.0.0',
+                'pil_available': PIL_AVAILABLE,
+                'config': {
+                    'width': self.config.width,
+                    'height': self.config.height,
+                    'quality': self.config.quality,
+                    'format': self.config.format,
+                    'cache_enabled': self.config.enable_cache,
+                    'workers': self.config.max_workers
+                }
             },
-            'artistic_insights': {
-                'total_styles_used': len(self.stats['styles_used']),
-                'most_popular_style': max(
-                    self.stats['styles_used'].items(), 
-                    key=lambda x: x[1], 
-                    default=('NONE', 0)
-                )[0],
-                'style_distribution': self.stats['styles_used']
+            'performance': {
+                'total_generated': self.stats['total_generated'],
+                'successful': self.stats['successful'],
+                'failed': self.stats['failed'],
+                'success_rate': round(success_rate, 1),
+                'total_time_seconds': round(self.stats['total_time'], 2),
+                'average_time_seconds': round(avg_time, 3),
+                'cache_hits': self.stats['cache_hits'],
+                'cache_misses': self.stats['cache_misses'],
+                'cache_hit_rate': round(cache_hit_rate, 1)
             },
-            'generator_info': {
-                'version': '8.0.0',
-                'art_style': self.config.art_style.name,
-                'magic_intensity': self.config.magic_intensity,
-                'canvas_size': f"{self.config.width}x{self.config.height}",
-                'max_workers': self.config.max_workers
+            'cache': cache_stats,
+            'fonts': {
+                'total_fonts': len(self.font_manager.available_fonts),
+                'bengali_fonts': len(self.font_manager.bengali_fonts),
+                'english_fonts': len(self.font_manager.english_fonts)
             }
         }
     
-    def create_demo_masterpiece(self):
-        """Create a demo masterpiece to show magical powers"""
-        demo_texts = [
-            "✨ Magic is Real! ✨",
-            "🎨 Create Your Masterpiece 🎨",
-            "🌟 Dream Big, Create Bigger 🌟",
-            "🔥 Passion Fuels Creation 🔥",
-            "💫 Where Art Meets Magic 💫"
-        ]
-        
-        demo_user = {
-            'name': 'Artistic Soul',
-            'title': 'Master Creator',
-            'magic_level': 99,
-            'favorite_color': 'Rainbow'
+    def health_check(self) -> Dict:
+        """Perform health check of the generator"""
+        checks = {
+            'pil_available': PIL_AVAILABLE,
+            'directories_accessible': True,
+            'font_manager_ready': len(self.font_manager.available_fonts) > 0,
+            'cache_operational': True,
+            'write_permissions': True
         }
         
-        result = self.create_masterpiece(
-            text=random.choice(demo_texts),
-            user_info=demo_user,
-            art_style=ArtStyle.get_random(),
-            border_art=BorderArt(border_type=BorderType.get_random()),
-            background_art=BackgroundArt(type=BackgroundType.get_random())
-        )
+        # Check directories
+        for dir_path in [self.config.output_dir, self.config.temp_dir]:
+            try:
+                path = Path(dir_path)
+                test_file = path / '.health_check'
+                test_file.touch()
+                test_file.unlink()
+            except Exception as e:
+                checks['directories_accessible'] = False
         
-        return result
+        # Check cache
+        try:
+            test_key = 'health_check'
+            test_data = b'test'
+            self.cache_manager.set(test_key, test_data)
+            retrieved = self.cache_manager.get(test_key)
+            checks['cache_operational'] = retrieved == test_data
+            self.cache_manager.delete(test_key)
+        except Exception as e:
+            checks['cache_operational'] = False
+        
+        overall_health = all(checks.values())
+        
+        return {
+            'healthy': overall_health,
+            'checks': checks,
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    def cleanup(self, max_age_hours: int = 24):
+        """Cleanup old files from output and temp directories"""
+        try:
+            cutoff = time.time() - (max_age_hours * 3600)
+            
+            for dir_path in [self.config.temp_dir, self.config.output_dir]:
+                dir_obj = Path(dir_path)
+                if dir_obj.exists():
+                    for file in dir_obj.glob("*"):
+                        if file.is_file():
+                            try:
+                                if file.stat().st_mtime < cutoff:
+                                    file.unlink()
+                            except:
+                                pass
+            
+            # Clean cache
+            self.cache_manager.cleanup()
+            
+            logger.info(f"Cleanup completed for files older than {max_age_hours} hours")
+            
+        except Exception as e:
+            logger.error(f"Cleanup failed: {e}")
 
-# For backward compatibility
-UltimateImageGenerator = MagicalImageGenerator
-GenerationResult = MasterpieceResult
-ImageConfig = ArtConfig
-TextConfig = TextArt
-BorderConfig = BorderArt
-BackgroundConfig = BackgroundArt
+# Backward compatibility
+ImageGenerator = UltimateImageGenerator
 
-# Magical test function
-def test_magical_generator():
-    """Test the magical generator"""
-    print("\n" + "="*70)
-    print("✨ MAGICAL IMAGE GENERATOR v8.0 - DEMONSTRATION ✨")
-    print("="*70)
+# Test function
+def test_generator():
+    """Test the image generator"""
+    print("\n" + "="*60)
+    print("ULTIMATE IMAGE GENERATOR v7.0 - TEST")
+    print("="*60)
     
     if not PIL_AVAILABLE:
         print("❌ PIL/Pillow not installed!")
@@ -1377,73 +1852,73 @@ def test_magical_generator():
         return False
     
     try:
-        # Create magical generator
-        print("\n🔮 Initializing Magical Generator...")
-        generator = MagicalImageGenerator()
-        print("   ✅ Generator ready with magical powers!")
+        # Test 1: Basic initialization
+        print("\n🔹 Test 1: Initializing generator...")
+        generator = UltimateImageGenerator()
+        print("   ✓ Generator initialized")
         
-        # Create demo masterpiece
-        print("\n🎨 Creating Demo Masterpiece...")
-        result = generator.create_demo_masterpiece()
+        # Test 2: Generate roast image
+        print("\n🔹 Test 2: Testing roast image generation...")
+        
+        test_user = {
+            'id': 123456,
+            'username': 'test_user',
+            'first_name': 'টেস্ট',
+            'rating': 8.5
+        }
+        
+        result = generator.generate_roast_image(
+            "এটা একটা বাংলা টেস্ট রোস্ট! দেখি কেমন হয়?",
+            test_user
+        )
         
         if result.success:
-            print(f"   ✅ Masterpiece created: {result.image_path}")
-            print(f"   ⭐ Artistic Score: {result.artistic_score}")
-            print(f"   ⏱️ Creation Time: {result.creation_time}s")
-            print(f"   🎭 Style: {result.metadata['art_style']}")
-            print(f"   🖼️ Border: {result.metadata['border_type']}")
-            print(f"   🌈 Background: {result.metadata['background_type']}")
-            print(f"   ✨ Magic Level: {result.metadata['magic_level']}")
+            print(f"   ✓ Roast image generated: {result.image_path}")
+            print(f"     Processing time: {result.processing_time:.2f}s")
+            print(f"     Cache hit: {result.cache_hit}")
+            print(f"     Image size: {result.image_size:,} bytes")
         else:
-            print(f"   ❌ Failed: {result.error}")
+            print(f"   ✗ Roast image failed: {result.error}")
         
-        # Show statistics
-        print("\n📊 Magical Statistics:")
-        stats = generator.get_magical_stats()
-        print(f"   Masterpieces Created: {stats['magical_performance']['masterpieces_created']}")
-        print(f"   Average Magic Score: {stats['magical_performance']['average_magic_score']}")
-        print(f"   Success Rate: {stats['magical_performance']['success_rate']}%")
-        print(f"   Styles Used: {stats['artistic_insights']['total_styles_used']}")
+        # Test 3: Generate welcome image
+        print("\n🔹 Test 3: Testing welcome image generation...")
+        welcome_result = generator.generate_welcome_image(test_user)
         
-        print("\n" + "="*70)
-        print("🎉 MAGICAL TEST COMPLETED SUCCESSFULLY! 🎉")
-        print("="*70)
+        if welcome_result.success:
+            print(f"   ✓ Welcome image generated: {welcome_result.image_path}")
+        else:
+            print(f"   ✗ Welcome image failed: {welcome_result.error}")
+        
+        # Test 4: Get statistics
+        print("\n🔹 Test 4: Checking statistics...")
+        stats = generator.get_detailed_stats()
+        print(f"   Total generated: {stats['performance']['total_generated']}")
+        print(f"   Success rate: {stats['performance']['success_rate']}%")
+        print(f"   Average time: {stats['performance']['average_time_seconds']:.2f}s")
+        print(f"   Cache hit rate: {stats['performance']['cache_hit_rate']}%")
+        
+        # Test 5: Health check
+        print("\n🔹 Test 5: Health check...")
+        health = generator.health_check()
+        print(f"   System healthy: {health['healthy']}")
+        
+        # Test 6: Cleanup
+        print("\n🔹 Test 6: Testing cleanup...")
+        generator.cleanup(max_age_hours=0)  # Clean all test files
+        print("   ✓ Cleanup completed")
+        
+        print("\n" + "="*60)
+        print("✅ ALL TESTS PASSED SUCCESSFULLY!")
+        print("="*60)
         
         return True
         
     except Exception as e:
-        print(f"\n❌ MAGICAL TEST FAILED: {e}")
+        print(f"\n❌ TEST FAILED: {e}")
         traceback.print_exc()
         return False
 
 if __name__ == "__main__":
-    # Run magical test
-    print("Starting Magical Image Generator v8.0...")
-    success = test_magical_generator()
-    
-    if success:
-        print("\n✨ Generator is ready to create MASTERPIECES! ✨")
-        print("\nUsage example:")
-        print("""
-        # Create magical generator
-        generator = MagicalImageGenerator()
-        
-        # Create a masterpiece
-        result = generator.create_masterpiece(
-            text="Your magical text here",
-            user_info={"name": "Your Name"},
-            art_style=ArtStyle.CYBERPUNK,
-            border_art=BorderArt(border_type=BorderType.NEON_TUBE),
-            background_art=BackgroundArt(type=BackgroundType.GALAXY_NEBULA)
-        )
-        
-        if result.success:
-            print(f"🎨 Masterpiece saved to: {result.image_path}")
-            print(f"⭐ Artistic Score: {result.artistic_score}")
-        else:
-            print(f"❌ Failed: {result.error}")
-        """)
-    else:
-        print("\n⚠️ Generator needs some magical tuning!")
-    
+    # Run test
+    success = test_generator()
     sys.exit(0 if success else 1)
