@@ -16,6 +16,9 @@ from .auto_mood_recognition import AutoMoodRecognition
 from .safe_forward_share import SafeForwardShare
 from .master_loader import MasterLoader, load_all_features
 
+__version__ = "15.0.0"
+__author__ = "Roastify Team"
+
 __all__ = [
     'RoastEngine',
     'WelcomeSystem',
