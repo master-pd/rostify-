@@ -19,9 +19,9 @@ BOT_IDENTITY = {
     "tagline": "Ultimate Roasting Experience v15.0",
     "version": "15.0.0",
     "edition": "Premium",
-    "developer": "Roastify Team",
-    "website": "https://roastify.example.com",
-    "support": "@roastify_support"
+    "developer": "MASTER 🪓",
+    "website": "coming soon... ",
+    "support": "@raba_editz_00"
 }
 
 # Bot Token (Set in .env)
@@ -45,8 +45,8 @@ CORE_RULES = {
 
 # Admin Protection
 OWNER_ADMIN_PROTECTION = {
-    "bot_owner_user_id": 123456789,  # Replace with your ID
-    "admin_user_ids": [123456789],   # Add admin IDs
+    "bot_owner_user_id": 6454347745,  # Replace with your ID
+    "admin_user_ids": [],   # Add admin IDs
     "moderator_ids": [],             # Moderator IDs
     "protected_words": ["admin", "owner", "moderator", "developer"],
     "enable_protection": True,
@@ -76,7 +76,7 @@ IMAGE_CONFIG = {
     "quality": 100,
     "format": "PNG",
     "enable_watermark": True,
-    "watermark_text": "Roastify Premium v15.0",
+    "watermark_text": "Roastify",
     "watermark_opacity": 30,
     "max_file_size_mb": 10
 }
