@@ -1,1303 +1,1031 @@
 #!/usr/bin/env python3
 """
-Advanced 3D Image Generator for Roastify Bot
-Professional-grade image generation with caching, async operations, and advanced effects
+Roastify Advanced Image Generator - Termux Compatible
+Complete fixed version with all features
 """
 
 import os
 import sys
 import random
-import asyncio
 import logging
+import textwrap
 import hashlib
-import functools
-from typing import Dict, List, Any, Optional, Tuple, Union, BinaryIO
 from datetime import datetime
-from dataclasses import dataclass, field
-from enum import Enum
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import asynccontextmanager
-import json
-import pickle
+from typing import Dict, List, Tuple, Optional, Any, Union
 from pathlib import Path
 
-import numpy as np
-from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps, ImageEnhance
-from PIL.Image import Resampling
-import textwrap
-from cachetools import TTLCache, cached
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.console import Console
-import aiofiles
-
-# Configure structured logging
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('image_generator.log'),
-        logging.StreamHandler()
-    ]
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-console = Console()
 
-# Import config with fallbacks
+# Try to import PIL with fallback
 try:
-    from config import IMAGE_GENERATION, BORDERS, FONTS, PATHS, TIME_BASED_BEHAVIOR
-except ImportError:
-    logger.error("Config module not found. Using defaults.")
-    
-    # Default configuration
-    IMAGE_GENERATION = {
-        "image_resolution": (1080, 1080),
-        "visual_elements": {
-            "glow_effect": True,
-            "cinematic_lighting": True,
-            "background_blur": False,
-            "reflection_effect": True
-        },
-        "quality": 95,
-        "format": "PNG",
-        "max_file_size_mb": 5
-    }
-    
-    BORDERS = {
-        "border_files": ["*.png", "*.jpg"],
-        "no_repeat_until": 5,
-        "auto_generate": True,
-        "styles": ["neon", "vintage", "modern", "cyberpunk"]
-    }
-    
-    FONTS = {
-        "font_files": ["*.ttf", "*.otf"],
-        "no_repeat_until": 3,
-        "fallback_fonts": [
-            "arial.ttf",
-            "roboto.ttf",
-            "montserrat.ttf"
-        ],
-        "font_styles": ["regular", "bold", "italic", "bold_italic"]
-    }
-    
-    PATHS = {
-        "fonts": "./assets/fonts",
-        "borders": "./assets/borders",
-        "temp": "./temp",
-        "templates": "./templates",
-        "cache": "./cache",
-        "output": "./output"
-    }
-    
-    TIME_BASED_BEHAVIOR = {
-        "day_mode": {
-            "time_range": [6, 18],
-            "theme": "light",
-            "brightness": 1.0
-        },
-        "night_mode": {
-            "time_range": [18, 6],
-            "theme": "dark",
-            "brightness": 0.8
-        }
-    }
+    from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps, ImageEnhance
+    from PIL.Image import Resampling
+    PIL_AVAILABLE = True
+    logger.info("PIL/Pillow loaded successfully")
+except ImportError as e:
+    PIL_AVAILABLE = False
+    logger.warning(f"PIL not available: {e}. Image generation disabled.")
 
 
-class ImageStyle(Enum):
-    """Enum for image styles"""
-    CARTOON = "cartoon"
-    NEON = "neon"
-    VINTAGE = "vintage"
-    CYBERPUNK = "cyberpunk"
-    MINIMAL = "minimal"
-    GRUNGE = "grunge"
-
-
-class TextEffect(Enum):
-    """Enum for text effects"""
-    GLOW = "glow"
-    SHADOW_3D = "shadow_3d"
-    GRADIENT = "gradient"
-    OUTLINE = "outline"
-    EMBOSS = "emboss"
-    NEON = "neon"
-
-
-@dataclass
-class GenerationConfig:
+class ImageConfig:
     """Configuration for image generation"""
-    width: int = 1080
-    height: int = 1080
-    style: ImageStyle = ImageStyle.NEON
-    quality: int = 95
-    format: str = "PNG"
-    enable_cache: bool = True
-    cache_ttl: int = 3600  # 1 hour
-    use_async: bool = True
-    max_workers: int = 4
-
-
-@dataclass
-class TextConfig:
-    """Configuration for text rendering"""
-    primary_text: str
-    secondary_text: str = ""
-    emoji: str = ""
-    font_size_primary: int = 60
-    font_size_secondary: int = 40
-    font_size_emoji: int = 80
-    text_color: Tuple[int, int, int] = (255, 255, 255)
-    shadow_color: Tuple[int, int, int] = (0, 0, 0)
-    effects: List[TextEffect] = field(default_factory=lambda: [TextEffect.GLOW])
-    alignment: str = "center"
-    line_spacing: int = 1
-    max_width: int = 30
-
-
-@dataclass
-class BorderConfig:
-    """Configuration for borders"""
-    enabled: bool = True
-    style: str = "random"
-    color: Optional[Tuple[int, int, int]] = None
-    thickness: int = 20
-    padding: int = 50
-    corner_radius: int = 20
-
-
-@dataclass
-class BackgroundConfig:
-    """Configuration for backgrounds"""
-    type: str = "gradient"  # solid, gradient, image, pattern
-    primary_color: Tuple[int, int, int] = (0, 0, 0)
-    secondary_color: Optional[Tuple[int, int, int]] = None
-    image_path: Optional[str] = None
-    opacity: float = 1.0
-    blur_radius: int = 0
-    pattern: str = "none"  # grid, dots, lines, noise
-
-
-class AsyncImageProcessor:
-    """Handle async image operations"""
     
-    def __init__(self, max_workers: int = 4):
-        self.executor = ThreadPoolExecutor(max_workers=max_workers)
-        self.loop = asyncio.get_event_loop()
-    
-    async def process_image_async(self, func, *args, **kwargs):
-        """Run image processing in thread pool"""
-        return await self.loop.run_in_executor(
-            self.executor,
-            functools.partial(func, *args, **kwargs)
-        )
-    
-    @asynccontextmanager
-    async def async_open_image(self, path: str):
-        """Async context manager for opening images"""
-        async with aiofiles.open(path, 'rb') as f:
-            content = await f.read()
-        image = Image.open(io.BytesIO(content))
-        try:
-            yield image
-        finally:
-            image.close()
-    
-    def close(self):
-        """Cleanup resources"""
-        self.executor.shutdown(wait=False)
-
-
-class CacheManager:
-    """Manage caching for generated images"""
-    
-    def __init__(self, cache_dir: str = "./cache", max_size: int = 100, ttl: int = 3600):
-        self.cache_dir = Path(cache_dir)
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self.memory_cache = TTLCache(maxsize=max_size, ttl=ttl)
-        self.metadata_file = self.cache_dir / "metadata.pkl"
-        self._load_metadata()
-    
-    def _load_metadata(self):
-        """Load cache metadata"""
-        if self.metadata_file.exists():
-            try:
-                with open(self.metadata_file, 'rb') as f:
-                    self.metadata = pickle.load(f)
-            except:
-                self.metadata = {}
-        else:
-            self.metadata = {}
-    
-    def _save_metadata(self):
-        """Save cache metadata"""
-        try:
-            with open(self.metadata_file, 'wb') as f:
-                pickle.dump(self.metadata, f)
-        except Exception as e:
-            logger.error(f"Error saving cache metadata: {e}")
-    
-    def _generate_key(self, *args, **kwargs) -> str:
-        """Generate cache key from arguments"""
-        data = f"{args}{kwargs}"
-        return hashlib.md5(data.encode()).hexdigest()
-    
-    def get(self, key: str) -> Optional[bytes]:
-        """Get cached image"""
-        # Check memory cache first
-        if key in self.memory_cache:
-            return self.memory_cache[key]
+    def __init__(self):
+        self.width = 1080
+        self.height = 1080
+        self.quality = 90
+        self.format = "PNG"
+        self.enable_cache = True
+        self.cache_dir = "./cache"
+        self.output_dir = "./output"
+        self.temp_dir = "./temp"
         
-        # Check disk cache
-        cache_file = self.cache_dir / f"{key}.png"
-        if cache_file.exists():
-            try:
-                with open(cache_file, 'rb') as f:
-                    data = f.read()
-                self.memory_cache[key] = data
-                return data
-            except Exception as e:
-                logger.error(f"Error reading cache file: {e}")
+        # Create directories
+        for dir_path in [self.cache_dir, self.output_dir, self.temp_dir]:
+            Path(dir_path).mkdir(parents=True, exist_ok=True)
         
-        return None
-    
-    def set(self, key: str, data: bytes):
-        """Cache image data"""
-        # Store in memory cache
-        self.memory_cache[key] = data
-        
-        # Store in disk cache
-        cache_file = self.cache_dir / f"{key}.png"
-        try:
-            with open(cache_file, 'wb') as f:
-                f.write(data)
-            
-            # Update metadata
-            self.metadata[key] = {
-                'timestamp': datetime.now().isoformat(),
-                'size': len(data)
-            }
-            self._save_metadata()
-        except Exception as e:
-            logger.error(f"Error writing cache file: {e}")
-    
-    def clear_old_cache(self, max_age_hours: int = 24):
-        """Clear old cache entries"""
-        cutoff = datetime.now().timestamp() - (max_age_hours * 3600)
-        
-        for cache_file in self.cache_dir.glob("*.png"):
-            if cache_file.stat().st_mtime < cutoff:
-                try:
-                    cache_file.unlink()
-                    key = cache_file.stem
-                    if key in self.metadata:
-                        del self.metadata[key]
-                except Exception as e:
-                    logger.error(f"Error deleting cache file {cache_file}: {e}")
-        
-        self._save_metadata()
-
-
-class AdvancedImageGenerator:
-    """Advanced 3D image generator with professional features"""
-    
-    def __init__(self, config: Optional[GenerationConfig] = None):
-        """Initialize advanced image generator"""
-        self.config = config or GenerationConfig()
-        self.async_processor = AsyncImageProcessor(
-            max_workers=self.config.max_workers
-        )
-        self.cache_manager = CacheManager(
-            cache_dir=PATHS["cache"],
-            ttl=self.config.cache_ttl
-        )
-        
-        # Initialize components
-        self.font_manager = FontManager()
-        self.border_manager = BorderManager()
-        self.effect_manager = EffectManager()
-        self.template_manager = TemplateManager()
-        
-        # Performance tracking
-        self.performance_stats = {
-            'total_generated': 0,
-            'avg_generation_time': 0,
-            'cache_hits': 0,
-            'cache_misses': 0
-        }
-        
-        # Load assets asynchronously
-        self._load_assets_async()
-        
-        logger.info(f"Advanced Image Generator initialized with config: {self.config}")
-    
-    async def _load_assets_async(self):
-        """Load assets asynchronously"""
-        tasks = [
-            self.font_manager.load_fonts_async(),
-            self.border_manager.load_borders_async(),
-            self.template_manager.load_templates_async()
-        ]
-        
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console
-        ) as progress:
-            task = progress.add_task("Loading assets...", total=len(tasks))
-            
-            for coro in asyncio.as_completed(tasks):
-                await coro
-                progress.advance(task)
-    
-    def _create_performance_decorator(self, func):
-        """Decorator to track performance"""
-        @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
-            start_time = datetime.now()
-            result = await func(*args, **kwargs)
-            end_time = datetime.now()
-            
-            duration = (end_time - start_time).total_seconds()
-            self.performance_stats['total_generated'] += 1
-            self.performance_stats['avg_generation_time'] = (
-                (self.performance_stats['avg_generation_time'] * 
-                 (self.performance_stats['total_generated'] - 1) + duration) /
-                self.performance_stats['total_generated']
-            )
-            
-            logger.debug(f"{func.__name__} executed in {duration:.2f}s")
-            return result
-        
-        return wrapper
-    
-    @cached(cache=TTLCache(maxsize=100, ttl=300))
-    def _get_theme_config(self, hour: Optional[int] = None) -> Dict:
-        """Get theme configuration based on time (cached)"""
-        if hour is None:
-            hour = datetime.now().hour
-        
-        if TIME_BASED_BEHAVIOR["day_mode"]["time_range"][0] <= hour <= \
-           TIME_BASED_BEHAVIOR["day_mode"]["time_range"][1]:
-            theme = "day"
-        else:
-            theme = "night"
-        
-        themes = {
-            "day": {
-                "mode": "day",
-                "brightness": 1.0,
-                "contrast": 1.0,
-                "saturation": 1.1,
-                "colors": {
-                    "primary": (255, 255, 255),
-                    "secondary": (245, 245, 245),
-                    "text": (30, 30, 30),
-                    "accent": (70, 130, 180),
-                    "shadow": (200, 200, 200)
-                }
+        # Color schemes
+        self.color_schemes = {
+            'dark': {
+                'background': (20, 20, 40),
+                'text': (255, 255, 255),
+                'accent': (255, 105, 180),
+                'border': (0, 255, 255),
+                'shadow': (50, 50, 50)
             },
-            "night": {
-                "mode": "night",
-                "brightness": 0.8,
-                "contrast": 1.2,
-                "saturation": 0.9,
-                "colors": {
-                    "primary": (20, 20, 40),
-                    "secondary": (40, 40, 60),
-                    "text": (220, 220, 255),
-                    "accent": (255, 105, 180),
-                    "shadow": (50, 50, 80)
-                }
+            'light': {
+                'background': (255, 255, 255),
+                'text': (30, 30, 30),
+                'accent': (70, 130, 180),
+                'border': (100, 100, 100),
+                'shadow': (200, 200, 200)
+            },
+            'neon': {
+                'background': (0, 0, 20),
+                'text': (0, 255, 255),
+                'accent': (255, 0, 255),
+                'border': (255, 255, 0),
+                'shadow': (0, 100, 100)
+            },
+            'vintage': {
+                'background': (249, 245, 235),
+                'text': (101, 67, 33),
+                'accent': (188, 143, 143),
+                'border': (139, 69, 19),
+                'shadow': (160, 120, 90)
             }
         }
-        
-        return themes.get(theme, themes["day"])
-    
-    async def _create_advanced_text_effect(
-        self,
-        draw: ImageDraw,
-        text: str,
-        font: ImageFont,
-        position: Tuple[int, int],
-        config: TextConfig
-    ) -> Image.Image:
-        """Create advanced text effects with multiple techniques"""
-        x, y = position
-        
-        # Create a temporary image for text effects
-        temp_image = Image.new('RGBA', (font.size * len(text), font.size * 2), (0, 0, 0, 0))
-        temp_draw = ImageDraw.Draw(temp_image)
-        
-        # Draw base text
-        temp_draw.text((0, 0), text, font=font, fill=config.text_color)
-        
-        # Apply effects
-        for effect in config.effects:
-            if effect == TextEffect.GLOW:
-                temp_image = await self.effect_manager.apply_glow_effect(
-                    temp_image, intensity=3
-                )
-            elif effect == TextEffect.SHADOW_3D:
-                temp_image = await self.effect_manager.apply_3d_shadow(
-                    temp_image, depth=5
-                )
-            elif effect == TextEffect.GRADIENT:
-                temp_image = await self.effect_manager.apply_gradient_text(
-                    temp_image,
-                    start_color=config.text_color,
-                    end_color=config.shadow_color
-                )
-            elif effect == TextEffect.OUTLINE:
-                temp_image = await self.effect_manager.apply_outline(
-                    temp_image,
-                    outline_color=config.shadow_color,
-                    thickness=2
-                )
-            elif effect == TextEffect.EMBOSS:
-                temp_image = await self.effect_manager.apply_emboss_effect(temp_image)
-            elif effect == TextEffect.NEON:
-                temp_image = await self.effect_manager.apply_neon_effect(
-                    temp_image,
-                    glow_color=config.text_color
-                )
-        
-        # Composite back to main image
-        bbox = temp_image.getbbox()
-        if bbox:
-            temp_image = temp_image.crop(bbox)
-            draw.bitmap(position, temp_image, fill=None)
-        
-        return temp_image
-    
-    async def _generate_background(
-        self,
-        width: int,
-        height: int,
-        config: BackgroundConfig
-    ) -> Image.Image:
-        """Generate advanced background"""
-        if config.type == "gradient":
-            background = await self.effect_manager.create_gradient(
-                width, height,
-                config.primary_color,
-                config.secondary_color or config.primary_color,
-                direction="diagonal"
-            )
-        elif config.type == "image" and config.image_path:
-            async with self.async_processor.async_open_image(config.image_path) as img:
-                background = img.resize((width, height), Resampling.LANCZOS)
-                if config.opacity < 1.0:
-                    background = await self.effect_manager.adjust_opacity(
-                        background, config.opacity
-                    )
-        else:
-            background = Image.new('RGB', (width, height), config.primary_color)
-        
-        # Apply patterns
-        if config.pattern != "none":
-            pattern = await self.effect_manager.create_pattern(
-                width, height,
-                pattern_type=config.pattern,
-                color=config.secondary_color or config.primary_color
-            )
-            background = Image.alpha_composite(
-                background.convert('RGBA'),
-                pattern
-            )
-        
-        # Apply blur if specified
-        if config.blur_radius > 0:
-            background = await self.async_processor.process_image_async(
-                background.filter,
-                ImageFilter.GaussianBlur(config.blur_radius)
-            )
-        
-        return background
-    
-    @_create_performance_decorator
-    async def generate_image(
-        self,
-        text_config: TextConfig,
-        border_config: Optional[BorderConfig] = None,
-        background_config: Optional[BackgroundConfig] = None,
-        metadata: Optional[Dict] = None
-    ) -> Union[bytes, str]:
-        """
-        Generate image with advanced features
-        
-        Args:
-            text_config: Text configuration
-            border_config: Border configuration
-            background_config: Background configuration
-            metadata: Additional metadata
-            
-        Returns:
-            Image bytes or file path
-        """
-        # Generate cache key
-        cache_key = self.cache_manager._generate_key(
-            text_config, border_config, background_config, metadata
-        )
-        
-        # Check cache
-        if self.config.enable_cache:
-            cached_data = self.cache_manager.get(cache_key)
-            if cached_data:
-                self.performance_stats['cache_hits'] += 1
-                logger.debug("Cache hit for image generation")
-                return cached_data
-        
-        self.performance_stats['cache_misses'] += 1
-        
-        try:
-            # Get current theme
-            theme = self._get_theme_config()
-            
-            # Create background
-            bg_config = background_config or BackgroundConfig(
-                type="gradient",
-                primary_color=theme["colors"]["primary"],
-                secondary_color=theme["colors"]["secondary"]
-            )
-            
-            background = await self._generate_background(
-                self.config.width, self.config.height, bg_config
-            )
-            
-            # Create main image
-            image = background.copy()
-            draw = ImageDraw.Draw(image)
-            
-            # Get fonts
-            primary_font = await self.font_manager.get_font(
-                size=text_config.font_size_primary,
-                style="bold"
-            )
-            secondary_font = await self.font_manager.get_font(
-                size=text_config.font_size_secondary
-            )
-            emoji_font = await self.font_manager.get_font(
-                size=text_config.font_size_emoji
-            )
-            
-            # Wrap text
-            wrapper = textwrap.TextWrapper(width=text_config.max_width)
-            primary_lines = wrapper.wrap(text_config.primary_text)
-            secondary_lines = wrapper.wrap(text_config.secondary_text) if text_config.secondary_text else []
-            
-            # Calculate positions
-            total_height = (
-                len(primary_lines) * text_config.font_size_primary +
-                len(secondary_lines) * text_config.font_size_secondary +
-                text_config.font_size_emoji +
-                (len(primary_lines) + len(secondary_lines)) * text_config.line_spacing * 10
-            )
-            
-            current_y = (self.config.height - total_height) // 2
-            
-            # Draw primary text with effects
-            for line in primary_lines:
-                bbox = draw.textbbox((0, 0), line, font=primary_font)
-                text_width = bbox[2] - bbox[0]
-                x_position = (self.config.width - text_width) // 2
-                
-                await self._create_advanced_text_effect(
-                    draw, line, primary_font,
-                    (x_position, current_y), text_config
-                )
-                
-                current_y += text_config.font_size_primary + text_config.line_spacing * 10
-            
-            # Draw secondary text
-            if secondary_lines:
-                current_y += 20
-                for line in secondary_lines:
-                    bbox = draw.textbbox((0, 0), line, font=secondary_font)
-                    text_width = bbox[2] - bbox[0]
-                    x_position = (self.config.width - text_width) // 2
-                    
-                    draw.text(
-                        (x_position, current_y),
-                        line,
-                        font=secondary_font,
-                        fill=text_config.text_color
-                    )
-                    
-                    current_y += text_config.font_size_secondary + text_config.line_spacing * 5
-            
-            # Draw emoji
-            if text_config.emoji:
-                bbox = draw.textbbox((0, 0), text_config.emoji, font=emoji_font)
-                text_width = bbox[2] - bbox[0]
-                x_position = (self.config.width - text_width) // 2
-                
-                draw.text(
-                    (x_position, current_y + 20),
-                    text_config.emoji,
-                    font=emoji_font,
-                    fill=text_config.text_color
-                )
-            
-            # Apply post-processing effects
-            image = await self.effect_manager.apply_cinematic_lighting(
-                image, theme["mode"]
-            )
-            
-            if IMAGE_GENERATION["visual_elements"]["reflection_effect"]:
-                image = await self.effect_manager.apply_reflection_effect(image)
-            
-            # Add border
-            if border_config and border_config.enabled:
-                border = await self.border_manager.get_border(
-                    style=border_config.style,
-                    color=border_config.color or theme["colors"]["accent"],
-                    size=(self.config.width, self.config.height)
-                )
-                if border:
-                    image = Image.alpha_composite(image.convert('RGBA'), border)
-            
-            # Add metadata watermark if provided
-            if metadata:
-                image = await self._add_metadata_watermark(image, metadata)
-            
-            # Convert to bytes
-            img_byte_arr = io.BytesIO()
-            image.save(
-                img_byte_arr,
-                format=self.config.format,
-                quality=self.config.quality,
-                optimize=True
-            )
-            
-            result = img_byte_arr.getvalue()
-            
-            # Cache the result
-            if self.config.enable_cache:
-                self.cache_manager.set(cache_key, result)
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"Error generating image: {e}", exc_info=True)
-            raise ImageGenerationError(f"Failed to generate image: {str(e)}")
-    
-    async def generate_image_batch(
-        self,
-        text_configs: List[TextConfig],
-        output_dir: Optional[str] = None,
-        concurrent: bool = True
-    ) -> List[str]:
-        """Generate multiple images in batch"""
-        output_dir = output_dir or PATHS["output"]
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-        
-        file_paths = []
-        
-        if concurrent:
-            # Generate images concurrently
-            tasks = [
-                self.generate_image(text_config)
-                for text_config in text_configs
-            ]
-            
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    logger.error(f"Error generating image {i}: {result}")
-                    continue
-                
-                filename = f"batch_{i}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-                filepath = Path(output_dir) / filename
-                
-                with open(filepath, 'wb') as f:
-                    f.write(result)
-                
-                file_paths.append(str(filepath))
-        else:
-            # Generate images sequentially
-            for i, text_config in enumerate(text_configs):
-                try:
-                    result = await self.generate_image(text_config)
-                    
-                    filename = f"batch_{i}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-                    filepath = Path(output_dir) / filename
-                    
-                    with open(filepath, 'wb') as f:
-                        f.write(result)
-                    
-                    file_paths.append(str(filepath))
-                except Exception as e:
-                    logger.error(f"Error generating image {i}: {e}")
-        
-        return file_paths
-    
-    async def _add_metadata_watermark(self, image: Image.Image, metadata: Dict) -> Image.Image:
-        """Add metadata as watermark"""
-        draw = ImageDraw.Draw(image.convert('RGBA'))
-        
-        # Create watermark text
-        watermark_text = []
-        for key, value in metadata.items():
-            if key not in ['user_id', 'timestamp']:
-                watermark_text.append(f"{key}: {value}")
-        
-        if watermark_text:
-            watermark = "\n".join(watermark_text)
-            font = await self.font_manager.get_font(size=12)
-            
-            # Add semi-transparent background for watermark
-            watermark_bg = Image.new('RGBA', image.size, (0, 0, 0, 0))
-            watermark_draw = ImageDraw.Draw(watermark_bg)
-            
-            bbox = watermark_draw.textbbox((0, 0), watermark, font=font)
-            padding = 10
-            
-            watermark_draw.rectangle(
-                [
-                    bbox[0] - padding, bbox[1] - padding,
-                    bbox[2] + padding, bbox[3] + padding
-                ],
-                fill=(0, 0, 0, 100)
-            )
-            
-            watermark_draw.text(
-                (padding, image.height - bbox[3] - padding * 2),
-                watermark,
-                font=font,
-                fill=(255, 255, 255, 150)
-            )
-            
-            image = Image.alpha_composite(image, watermark_bg)
-        
-        return image
-    
-    def get_performance_stats(self) -> Dict:
-        """Get performance statistics"""
-        return {
-            **self.performance_stats,
-            'cache_hit_rate': (
-                self.performance_stats['cache_hits'] /
-                max(self.performance_stats['cache_hits'] + self.performance_stats['cache_misses'], 1)
-            ) * 100
-        }
-    
-    async def cleanup(self):
-        """Cleanup resources"""
-        await self.async_processor.close()
-        self.cache_manager.clear_old_cache()
 
 
 class FontManager:
-    """Manage font loading and caching"""
+    """Manage fonts with fallback system"""
     
     def __init__(self):
-        self.fonts_cache = {}
-        self.available_fonts = []
-        self.font_variants = {}
+        self.fonts = {}
+        self.default_font = None
+        self._load_fonts()
     
-    async def load_fonts_async(self):
-        """Load fonts asynchronously"""
-        fonts_dir = Path(PATHS["fonts"])
+    def _load_fonts(self):
+        """Load available fonts"""
+        if not PIL_AVAILABLE:
+            return
         
-        if fonts_dir.exists():
-            font_files = []
-            for pattern in FONTS["font_files"]:
-                font_files.extend(fonts_dir.glob(pattern))
-            
-            for font_file in font_files:
-                try:
-                    font = ImageFont.truetype(str(font_file), 12)
-                    self.available_fonts.append(str(font_file))
-                    
-                    # Extract font family and styles
-                    self._analyze_font_variants(font_file)
-                except Exception as e:
-                    logger.warning(f"Could not load font {font_file}: {e}")
+        font_paths = []
         
-        logger.info(f"Loaded {len(self.available_fonts)} fonts")
-    
-    def _analyze_font_variants(self, font_path: Path):
-        """Analyze font variants and styles"""
-        # This is a simplified implementation
-        # In production, you might want to use fontTools or similar
-        font_name = font_path.stem.lower()
+        # Check common font locations
+        possible_paths = [
+            # Termux system fonts
+            "/system/fonts",
+            "/data/data/com.termux/files/usr/share/fonts",
+            # Project fonts
+            "./fonts",
+            "./assets/fonts",
+            # Current directory
+            "."
+        ]
         
-        if "bold" in font_name and "italic" in font_name:
-            style = "bold_italic"
-        elif "bold" in font_name:
-            style = "bold"
-        elif "italic" in font_name:
-            style = "italic"
+        # Common font files to look for
+        font_files = [
+            "Roboto-Regular.ttf",
+            "Roboto-Bold.ttf",
+            "DroidSans.ttf",
+            "DejaVuSans.ttf",
+            "DejaVuSans-Bold.ttf",
+            "arial.ttf",
+            "Arial.ttf",
+            "NotoSans-Regular.ttf",
+            "NotoSansBengali-Regular.ttf"
+        ]
+        
+        # Search for fonts
+        for base_path in possible_paths:
+            if os.path.exists(base_path):
+                # Look for specific font files
+                for font_file in font_files:
+                    font_path = os.path.join(base_path, font_file)
+                    if os.path.exists(font_path):
+                        font_paths.append(font_path)
+                
+                # Also look for any .ttf files
+                if os.path.isdir(base_path):
+                    for file in os.listdir(base_path):
+                        if file.lower().endswith(('.ttf', '.otf')):
+                            font_paths.append(os.path.join(base_path, file))
+        
+        # Load fonts
+        for font_path in font_paths:
+            try:
+                font_name = os.path.basename(font_path)
+                # Test load with small size
+                font = ImageFont.truetype(font_path, 10)
+                self.fonts[font_name] = font_path
+                logger.debug(f"Loaded font: {font_name}")
+            except Exception as e:
+                logger.debug(f"Could not load font {font_path}: {e}")
+        
+        # Set default font
+        if self.fonts:
+            self.default_font = list(self.fonts.values())[0]
         else:
-            style = "regular"
+            self.default_font = None
         
-        family = font_name.replace("bold", "").replace("italic", "").replace("_", "").strip()
-        
-        if family not in self.font_variants:
-            self.font_variants[family] = {}
-        
-        self.font_variants[family][style] = str(font_path)
+        logger.info(f"Loaded {len(self.fonts)} fonts")
     
-    async def get_font(self, size: int = 12, style: str = "regular") -> ImageFont.FreeTypeFont:
-        """Get font with caching"""
-        cache_key = f"{size}_{style}"
+    def get_font(self, size: int = 40, style: str = "regular") -> Optional[Any]:
+        """Get font with specified size"""
+        if not PIL_AVAILABLE:
+            return None
         
-        if cache_key in self.fonts_cache:
-            return self.fonts_cache[cache_key]
-        
-        # Try to find appropriate font
-        font_path = None
-        
-        # Look for specific style
-        for family in self.font_variants:
-            if style in self.font_variants[family]:
-                font_path = self.font_variants[family][style]
-                break
-        
-        # Fallback to any available font
-        if not font_path and self.available_fonts:
-            font_path = random.choice(self.available_fonts)
-        
-        # Load font
         try:
-            if font_path:
-                font = ImageFont.truetype(font_path, size)
+            if self.default_font:
+                return ImageFont.truetype(self.default_font, size)
             else:
-                font = ImageFont.load_default()
-            
-            self.fonts_cache[cache_key] = font
-            return font
+                return ImageFont.load_default()
         except Exception as e:
             logger.error(f"Error loading font: {e}")
             return ImageFont.load_default()
-
-
-class BorderManager:
-    """Manage border generation and caching"""
     
-    def __init__(self):
-        self.borders_cache = {}
-        self.available_borders = []
-    
-    async def load_borders_async(self):
-        """Load borders asynchronously"""
-        borders_dir = Path(PATHS["borders"])
-        
-        if borders_dir.exists():
-            border_files = []
-            for pattern in BORDERS["border_files"]:
-                border_files.extend(borders_dir.glob(pattern))
-            
-            self.available_borders = [str(f) for f in border_files]
-        
-        # Generate default borders if none found
-        if not self.available_borders and BORDERS.get("auto_generate", True):
-            await self._generate_default_borders_async()
-        
-        logger.info(f"Loaded {len(self.available_borders)} borders")
-    
-    async def _generate_default_borders_async(self):
-        """Generate default borders asynchronously"""
-        borders_dir = Path(PATHS["borders"])
-        borders_dir.mkdir(parents=True, exist_ok=True)
-        
-        border_styles = BORDERS.get("styles", ["neon", "vintage", "modern"])
-        
-        for style in border_styles:
-            border_path = borders_dir / f"default_{style}_border.png"
-            
-            # Generate different styles
-            if style == "neon":
-                border = await self._create_neon_border(1080, 1080)
-            elif style == "vintage":
-                border = await self._create_vintage_border(1080, 1080)
-            elif style == "modern":
-                border = await self._create_modern_border(1080, 1080)
-            else:
-                border = await self._create_simple_border(1080, 1080)
-            
-            border.save(border_path, 'PNG')
-            self.available_borders.append(str(border_path))
-    
-    async def _create_neon_border(self, width: int, height: int) -> Image.Image:
-        """Create neon border"""
-        border = Image.new('RGBA', (width, height), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(border)
-        
-        # Draw neon glow effect
-        for i in range(3):
-            thickness = 20 - i * 5
-            color = (0, 255, 255, 150 - i * 50)
-            draw.rectangle(
-                [thickness, thickness, width - thickness, height - thickness],
-                outline=color,
-                width=5
-            )
-        
-        return border
-    
-    async def get_border(
-        self,
-        style: str = "random",
-        color: Optional[Tuple[int, int, int]] = None,
-        size: Tuple[int, int] = (1080, 1080)
-    ) -> Optional[Image.Image]:
-        """Get border image"""
-        cache_key = f"{style}_{color}_{size}"
-        
-        if cache_key in self.borders_cache:
-            return self.borders_cache[cache_key]
-        
-        if not self.available_borders:
-            return None
-        
-        # Select border based on style
-        if style == "random":
-            border_path = random.choice(self.available_borders)
-        else:
-            # Find border matching style
-            matching = [b for b in self.available_borders if style in b.lower()]
-            border_path = matching[0] if matching else random.choice(self.available_borders)
+    def get_random_font(self, size: int = 40) -> Optional[Any]:
+        """Get random font"""
+        if not PIL_AVAILABLE or not self.fonts:
+            return self.get_font(size)
         
         try:
-            async with aiofiles.open(border_path, 'rb') as f:
-                content = await f.read()
-            
-            border = Image.open(io.BytesIO(content)).convert('RGBA')
-            border = border.resize(size, Resampling.LANCZOS)
-            
-            # Recolor if color specified
-            if color:
-                border = await self._recolor_border(border, color)
-            
-            self.borders_cache[cache_key] = border
-            return border
-        except Exception as e:
-            logger.error(f"Error loading border {border_path}: {e}")
-            return None
-    
-    async def _recolor_border(self, border: Image.Image, color: Tuple[int, int, int]) -> Image.Image:
-        """Recolor border image"""
-        # Convert border to numpy array for efficient processing
-        arr = np.array(border)
-        
-        # Create mask of non-transparent pixels
-        mask = arr[:, :, 3] > 0
-        
-        # Recolor
-        arr[mask, 0] = color[0]
-        arr[mask, 1] = color[1]
-        arr[mask, 2] = color[2]
-        
-        return Image.fromarray(arr)
+            font_path = random.choice(list(self.fonts.values()))
+            return ImageFont.truetype(font_path, size)
+        except:
+            return self.get_font(size)
 
 
 class EffectManager:
     """Manage visual effects"""
     
-    def __init__(self):
-        self.effect_cache = {}
+    @staticmethod
+    def add_shadow(draw: ImageDraw, text: str, font: ImageFont,
+                   position: Tuple[int, int], color: Tuple[int, int, int],
+                   shadow_color: Optional[Tuple[int, int, int]] = None,
+                   offset: int = 3) -> None:
+        """Add shadow to text"""
+        x, y = position
+        if shadow_color is None:
+            shadow_color = (color[0]//3, color[1]//3, color[2]//3)
+        
+        draw.text((x + offset, y + offset), text, font=font, fill=shadow_color)
+        draw.text(position, text, font=font, fill=color)
     
-    async def apply_glow_effect(
-        self,
-        image: Image.Image,
-        intensity: int = 2,
-        color: Optional[Tuple[int, int, int]] = None
-    ) -> Image.Image:
-        """Apply glow effect"""
-        cache_key = f"glow_{intensity}_{color}_{image.size}"
-        
-        if cache_key in self.effect_cache:
-            return self.effect_cache[cache_key]
-        
-        # Create glow layer
-        glow = image.copy()
-        glow = glow.filter(ImageFilter.GaussianBlur(radius=intensity))
-        
-        # Adjust color if specified
-        if color:
-            color_layer = Image.new('RGBA', image.size, (*color, 100))
-            glow = Image.alpha_composite(glow, color_layer)
-        
-        # Composite with original
-        result = Image.alpha_composite(glow, image)
-        
-        self.effect_cache[cache_key] = result
-        return result
-    
-    async def apply_3d_shadow(
-        self,
-        image: Image.Image,
-        depth: int = 3,
-        angle: float = 45
-    ) -> Image.Image:
-        """Apply 3D shadow effect"""
-        angle_rad = np.radians(angle)
-        dx = int(np.cos(angle_rad) * depth)
-        dy = int(np.sin(angle_rad) * depth)
-        
-        # Create shadow layers
-        shadow = Image.new('RGBA', image.size, (0, 0, 0, 0))
-        
-        for i in range(depth, 0, -1):
-            offset_x = dx * i // depth
-            offset_y = dy * i // depth
+    @staticmethod
+    def add_glow_effect(image: Image.Image, intensity: int = 2) -> Image.Image:
+        """Add glow effect to image"""
+        try:
+            # Create blurred copy
+            glow = image.copy()
+            glow = glow.filter(ImageFilter.GaussianBlur(radius=intensity))
             
-            shadow_layer = image.copy()
-            # Make shadow darker
-            shadow_layer = self._adjust_brightness(shadow_layer, 0.3)
-            shadow.paste(shadow_layer, (offset_x, offset_y), shadow_layer)
-        
-        # Composite shadow with original
-        result = Image.alpha_composite(shadow, image)
-        return result
+            # Composite with original
+            result = Image.new('RGBA', image.size, (0, 0, 0, 0))
+            result = Image.alpha_composite(result, glow)
+            result = Image.alpha_composite(result, image)
+            return result
+        except Exception as e:
+            logger.error(f"Error applying glow effect: {e}")
+            return image
     
-    async def create_gradient(
-        self,
-        width: int,
-        height: int,
-        start_color: Tuple[int, int, int],
-        end_color: Tuple[int, int, int],
-        direction: str = "horizontal"
-    ) -> Image.Image:
+    @staticmethod
+    def add_vignette(image: Image.Image, intensity: float = 0.7) -> Image.Image:
+        """Add vignette effect"""
+        try:
+            width, height = image.size
+            vignette = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(vignette)
+            
+            # Draw radial gradient
+            center_x, center_y = width // 2, height // 2
+            max_radius = int((width**2 + height**2)**0.5 / 2)
+            
+            for i in range(0, max_radius, 50):
+                radius = i
+                alpha = int(255 * intensity * (i / max_radius))
+                
+                if radius > 0:
+                    draw.ellipse(
+                        [center_x - radius, center_y - radius,
+                         center_x + radius, center_y + radius],
+                        fill=(0, 0, 0, alpha),
+                        outline=None
+                    )
+            
+            return Image.alpha_composite(image.convert('RGBA'), vignette)
+        except Exception as e:
+            logger.error(f"Error applying vignette: {e}")
+            return image
+    
+    @staticmethod
+    def create_gradient(width: int, height: int,
+                       start_color: Tuple[int, int, int],
+                       end_color: Tuple[int, int, int]) -> Image.Image:
         """Create gradient background"""
-        cache_key = f"gradient_{width}_{height}_{start_color}_{end_color}_{direction}"
-        
-        if cache_key in self.effect_cache:
-            return self.effect_cache[cache_key]
-        
         gradient = Image.new('RGB', (width, height))
         draw = ImageDraw.Draw(gradient)
         
-        if direction == "horizontal":
-            for x in range(width):
-                ratio = x / width
-                r = int(start_color[0] * (1 - ratio) + end_color[0] * ratio)
-                g = int(start_color[1] * (1 - ratio) + end_color[1] * ratio)
-                b = int(start_color[2] * (1 - ratio) + end_color[2] * ratio)
-                draw.line([(x, 0), (x, height)], fill=(r, g, b))
-        elif direction == "vertical":
-            for y in range(height):
-                ratio = y / height
-                r = int(start_color[0] * (1 - ratio) + end_color[0] * ratio)
-                g = int(start_color[1] * (1 - ratio) + end_color[1] * ratio)
-                b = int(start_color[2] * (1 - ratio) + end_color[2] * ratio)
-                draw.line([(0, y), (width, y)], fill=(r, g, b))
-        else:  # diagonal
-            for x in range(width):
-                for y in range(height):
-                    ratio = (x + y) / (width + height)
-                    r = int(start_color[0] * (1 - ratio) + end_color[0] * ratio)
-                    g = int(start_color[1] * (1 - ratio) + end_color[1] * ratio)
-                    b = int(start_color[2] * (1 - ratio) + end_color[2] * ratio)
-                    draw.point((x, y), fill=(r, g, b))
+        # Vertical gradient
+        for y in range(height):
+            ratio = y / height
+            r = int(start_color[0] * (1 - ratio) + end_color[0] * ratio)
+            g = int(start_color[1] * (1 - ratio) + end_color[1] * ratio)
+            b = int(start_color[2] * (1 - ratio) + end_color[2] * ratio)
+            draw.line([(0, y), (width, y)], fill=(r, g, b))
         
-        self.effect_cache[cache_key] = gradient
         return gradient
+
+
+class BorderManager:
+    """Manage border creation"""
     
-    async def apply_cinematic_lighting(
-        self,
-        image: Image.Image,
-        mode: str = "day"
-    ) -> Image.Image:
-        """Apply cinematic lighting effects"""
-        width, height = image.size
+    @staticmethod
+    def create_border(width: int, height: int,
+                     border_type: str = "simple",
+                     color: Tuple[int, int, int] = (255, 255, 255),
+                     thickness: int = 20) -> Image.Image:
+        """Create border image"""
+        border = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(border)
         
-        # Create lighting overlay
-        overlay = Image.new('RGBA', (width, height), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(overlay)
-        
-        if mode == "day":
-            # Sunlight from top-left
-            center_x, center_y = width // 4, height // 4
-            max_radius = max(width, height)
+        if border_type == "simple":
+            # Simple rectangle border
+            draw.rectangle(
+                [thickness, thickness, width - thickness, height - thickness],
+                outline=color + (255,),
+                width=thickness
+            )
             
-            for i in range(0, max_radius, 10):
-                radius = i
-                alpha = int(30 * (1 - i / max_radius))
-                draw.ellipse(
-                    [center_x - radius, center_y - radius,
-                     center_x + radius, center_y + radius],
-                    fill=(255, 255, 200, alpha),
-                    outline=None
-                )
+        elif border_type == "double":
+            # Double border
+            draw.rectangle(
+                [thickness, thickness, width - thickness, height - thickness],
+                outline=color + (255,),
+                width=thickness // 2
+            )
+            draw.rectangle(
+                [thickness * 2, thickness * 2,
+                 width - thickness * 2, height - thickness * 2],
+                outline=color + (200,),
+                width=thickness // 3
+            )
+            
+        elif border_type == "rounded":
+            # Rounded corners
+            radius = 40
+            # Top line
+            draw.line([radius, thickness, width - radius, thickness],
+                     fill=color + (255,), width=thickness)
+            # Bottom line
+            draw.line([radius, height - thickness, width - radius, height - thickness],
+                     fill=color + (255,), width=thickness)
+            # Left line
+            draw.line([thickness, radius, thickness, height - radius],
+                     fill=color + (255,), width=thickness)
+            # Right line
+            draw.line([width - thickness, radius, width - thickness, height - radius],
+                     fill=color + (255,), width=thickness)
+            
+            # Corners
+            draw.arc([thickness, thickness, radius * 2, radius * 2],
+                    180, 270, fill=color + (255,), width=thickness)
+            draw.arc([width - radius * 2, thickness, width - thickness, radius * 2],
+                    270, 360, fill=color + (255,), width=thickness)
+            draw.arc([thickness, height - radius * 2, radius * 2, height - thickness],
+                    90, 180, fill=color + (255,), width=thickness)
+            draw.arc([width - radius * 2, height - radius * 2,
+                     width - thickness, height - thickness],
+                    0, 90, fill=color + (255,), width=thickness)
+            
+        elif border_type == "dotted":
+            # Dotted border
+            dot_spacing = 30
+            dot_size = thickness // 2
+            
+            # Top
+            for x in range(dot_spacing, width - dot_spacing, dot_spacing):
+                draw.ellipse([x, thickness, x + dot_size, thickness + dot_size],
+                            fill=color + (255,))
+            
+            # Bottom
+            for x in range(dot_spacing, width - dot_spacing, dot_spacing):
+                draw.ellipse([x, height - thickness - dot_size,
+                             x + dot_size, height - thickness],
+                            fill=color + (255,))
+            
+            # Left
+            for y in range(dot_spacing, height - dot_spacing, dot_spacing):
+                draw.ellipse([thickness, y, thickness + dot_size, y + dot_size],
+                            fill=color + (255,))
+            
+            # Right
+            for y in range(dot_spacing, height - dot_spacing, dot_spacing):
+                draw.ellipse([width - thickness - dot_size, y,
+                             width - thickness, y + dot_size],
+                            fill=color + (255,))
+        
+        return border
+    
+    @staticmethod
+    def get_random_border_type() -> str:
+        """Get random border type"""
+        border_types = ["simple", "double", "rounded", "dotted"]
+        return random.choice(border_types)
+
+
+class AdvancedImageGenerator:
+    """Advanced Image Generator with all features"""
+    
+    def __init__(self, config: Optional[ImageConfig] = None):
+        self.config = config or ImageConfig()
+        self.font_manager = FontManager()
+        self.effect_manager = EffectManager()
+        self.border_manager = BorderManager()
+        
+        # Performance tracking
+        self.stats = {
+            'images_generated': 0,
+            'successful': 0,
+            'failed': 0,
+            'total_time': 0.0
+        }
+        
+        logger.info("Advanced Image Generator initialized")
+    
+    def _get_color_scheme(self, scheme_name: str = None) -> Dict[str, Tuple[int, int, int]]:
+        """Get color scheme"""
+        if scheme_name and scheme_name in self.config.color_schemes:
+            return self.config.color_schemes[scheme_name]
+        
+        # Auto-select based on time
+        current_hour = datetime.now().hour
+        if 6 <= current_hour < 18:
+            return self.config.color_schemes['light']
         else:
-            # Moonlight from top-right
-            center_x, center_y = width * 3 // 4, height // 4
-            max_radius = max(width, height) // 2
+            return self.config.color_schemes['dark']
+    
+    def _wrap_text(self, text: str, max_width: int = 30) -> List[str]:
+        """Wrap text to fit within max width"""
+        return textwrap.wrap(text, width=max_width)
+    
+    def _calculate_text_position(self, lines: List[str], font: ImageFont,
+                                total_height: int) -> Tuple[int, int]:
+        """Calculate text position for centering"""
+        # This is a simplified version - actual implementation would
+        # calculate based on exact text dimensions
+        return (self.config.width // 2, (self.config.height - total_height) // 2)
+    
+    def _save_to_cache(self, image_data: bytes, key: str) -> str:
+        """Save image to cache and return filepath"""
+        cache_dir = Path(self.config.cache_dir)
+        cache_file = cache_dir / f"{key}.png"
+        
+        try:
+            with open(cache_file, 'wb') as f:
+                f.write(image_data)
+            return str(cache_file)
+        except Exception as e:
+            logger.error(f"Error saving to cache: {e}")
+            return ""
+    
+    def _get_from_cache(self, key: str) -> Optional[bytes]:
+        """Get image from cache"""
+        cache_file = Path(self.config.cache_dir) / f"{key}.png"
+        
+        if cache_file.exists():
+            try:
+                with open(cache_file, 'rb') as f:
+                    return f.read()
+            except Exception as e:
+                logger.error(f"Error reading from cache: {e}")
+        
+        return None
+    
+    def generate_roast_image(self, roast_text: str, user_info: Dict[str, Any],
+                            style: str = "auto", with_border: bool = True) -> str:
+        """
+        Generate roast image
+        
+        Args:
+            roast_text: The roast text to display
+            user_info: Dictionary with user information
+            style: Color scheme style
+            with_border: Whether to add border
             
-            for i in range(0, max_radius, 10):
-                radius = i
-                alpha = int(40 * (1 - i / max_radius))
-                draw.ellipse(
-                    [center_x - radius, center_y - radius,
-                     center_x + radius, center_y + radius],
-                    fill=(150, 150, 255, alpha),
-                    outline=None
+        Returns:
+            Path to generated image file
+        """
+        start_time = datetime.now()
+        
+        if not PIL_AVAILABLE:
+            logger.error("PIL not available. Cannot generate image.")
+            self.stats['failed'] += 1
+            return self._create_error_image("PIL/Pillow not installed")
+        
+        try:
+            # Generate cache key
+            cache_key = hashlib.md5(
+                f"{roast_text}_{style}_{with_border}".encode()
+            ).hexdigest()[:12]
+            
+            # Check cache
+            if self.config.enable_cache:
+                cached = self._get_from_cache(cache_key)
+                if cached:
+                    output_path = Path(self.config.output_dir) / f"roast_{cache_key}.png"
+                    with open(output_path, 'wb') as f:
+                        f.write(cached)
+                    logger.info(f"Cache hit for image {cache_key}")
+                    self.stats['successful'] += 1
+                    return str(output_path)
+            
+            # Get color scheme
+            colors = self._get_color_scheme(style)
+            
+            # Create background
+            if random.choice([True, False]):
+                # Solid background
+                background = Image.new('RGB', (self.config.width, self.config.height),
+                                     colors['background'])
+            else:
+                # Gradient background
+                start_color = colors['background']
+                end_color = tuple(max(0, c - 30) for c in start_color)
+                background = self.effect_manager.create_gradient(
+                    self.config.width, self.config.height,
+                    start_color, end_color
                 )
-        
-        # Apply vignette effect
-        vignette = Image.new('RGBA', (width, height), (0, 0, 0, 0))
-        vignette_draw = ImageDraw.Draw(vignette)
-        
-        for i in range(0, max(width, height) // 2, 10):
-            radius = i
-            alpha = int(50 * (i / (max(width, height) // 2)))
             
-            # Create circular vignette
-            bbox = [
-                width // 2 - radius, height // 2 - radius,
-                width // 2 + radius, height // 2 + radius
+            # Convert to RGBA for effects
+            image = background.convert('RGBA')
+            draw = ImageDraw.Draw(image)
+            
+            # Get fonts
+            font_large = self.font_manager.get_random_font(self.config.width // 18)
+            font_medium = self.font_manager.get_font(self.config.width // 27)
+            font_small = self.font_manager.get_font(self.config.width // 36)
+            
+            # Wrap roast text
+            lines = self._wrap_text(roast_text, max_width=25)
+            
+            # Calculate positions
+            line_height_large = self.config.height // 15
+            total_text_height = len(lines) * line_height_large
+            current_y = (self.config.height - total_text_height) // 3
+            
+            # Draw roast text with effects
+            for line in lines:
+                # Get text dimensions
+                bbox = draw.textbbox((0, 0), line, font=font_large)
+                text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1]
+                
+                # Center horizontally
+                x_position = (self.config.width - text_width) // 2
+                
+                # Add shadow effect
+                self.effect_manager.add_shadow(
+                    draw, line, font_large,
+                    (x_position, current_y),
+                    colors['text'],
+                    colors['shadow']
+                )
+                
+                current_y += line_height_large
+            
+            # Add user information
+            user_text = f"@{user_info.get('username', 'user')}"
+            if 'rating' in user_info:
+                user_text += f" | Rating: {user_info['rating']}/10"
+            
+            bbox = draw.textbbox((0, 0), user_text, font=font_small)
+            text_width = bbox[2] - bbox[0]
+            draw.text(
+                ((self.config.width - text_width) // 2,
+                 self.config.height - 150),
+                user_text,
+                font=font_small,
+                fill=colors['accent']
+            )
+            
+            # Add timestamp
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            bbox = draw.textbbox((0, 0), timestamp, font=font_small)
+            text_width = bbox[2] - bbox[0]
+            draw.text(
+                ((self.config.width - text_width) // 2,
+                 self.config.height - 100),
+                timestamp,
+                font=font_small,
+                fill=colors['timestamp']
+            )
+            
+            # Add bot signature
+            signature = "Roastify Pro 🔥"
+            bbox = draw.textbbox((0, 0), signature, font=font_small)
+            text_width = bbox[2] - bbox[0]
+            draw.text(
+                ((self.config.width - text_width) // 2,
+                 self.config.height - 50),
+                signature,
+                font=font_small,
+                fill=colors['accent']
+            )
+            
+            # Apply effects
+            if random.choice([True, False]):
+                image = self.effect_manager.add_glow_effect(image, intensity=1)
+            
+            if random.choice([True, False]):
+                image = self.effect_manager.add_vignette(image, intensity=0.3)
+            
+            # Add border
+            if with_border:
+                border_type = self.border_manager.get_random_border_type()
+                border = self.border_manager.create_border(
+                    self.config.width, self.config.height,
+                    border_type, colors['border'],
+                    thickness=15
+                )
+                image = Image.alpha_composite(image, border)
+            
+            # Convert back to RGB for saving
+            if image.mode == 'RGBA':
+                rgb_image = Image.new('RGB', image.size, colors['background'])
+                rgb_image.paste(image, mask=image.split()[3])
+                image = rgb_image
+            
+            # Save image
+            output_path = Path(self.config.output_dir) / f"roast_{int(datetime.now().timestamp())}.png"
+            
+            # Convert to bytes for cache
+            img_byte_arr = self._image_to_bytes(image)
+            
+            # Save to file
+            with open(output_path, 'wb') as f:
+                f.write(img_byte_arr)
+            
+            # Cache the image
+            if self.config.enable_cache:
+                self._save_to_cache(img_byte_arr, cache_key)
+            
+            # Update stats
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
+            
+            self.stats['images_generated'] += 1
+            self.stats['successful'] += 1
+            self.stats['total_time'] += duration
+            
+            logger.info(f"Image generated: {output_path} (took {duration:.2f}s)")
+            
+            return str(output_path)
+            
+        except Exception as e:
+            logger.error(f"Error generating roast image: {e}", exc_info=True)
+            self.stats['failed'] += 1
+            return self._create_error_image(str(e))
+    
+    def generate_welcome_image(self, user_info: Dict[str, Any],
+                              welcome_message: str = "Welcome to Roastify!") -> str:
+        """Generate welcome image for new users"""
+        if not PIL_AVAILABLE:
+            return self._create_error_image("Image generation disabled")
+        
+        try:
+            colors = self.config.color_schemes['neon']
+            
+            # Create festive background
+            background = self.effect_manager.create_gradient(
+                self.config.width, self.config.height,
+                (30, 10, 50),  # Dark purple
+                (70, 30, 90)   # Lighter purple
+            )
+            
+            image = background.convert('RGBA')
+            draw = ImageDraw.Draw(image)
+            
+            # Get fonts
+            font_title = self.font_manager.get_random_font(self.config.width // 10)
+            font_welcome = self.font_manager.get_font(self.config.width // 20)
+            font_user = self.font_manager.get_font(self.config.width // 25)
+            font_info = self.font_manager.get_font(self.config.width // 30)
+            
+            # Draw title
+            title = "🎉 WELCOME 🎉"
+            bbox = draw.textbbox((0, 0), title, font=font_title)
+            text_width = bbox[2] - bbox[0]
+            draw.text(
+                ((self.config.width - text_width) // 2, 100),
+                title,
+                font=font_title,
+                fill=(255, 215, 0)  # Gold color
+            )
+            
+            # Draw welcome message
+            bbox = draw.textbbox((0, 0), welcome_message, font=font_welcome)
+            text_width = bbox[2] - bbox[0]
+            draw.text(
+                ((self.config.width - text_width) // 2, 250),
+                welcome_message,
+                font=font_welcome,
+                fill=colors['text']
+            )
+            
+            # Draw user info
+            user_line = f"@{user_info.get('username', 'New User')}"
+            if 'first_name' in user_info:
+                user_line = f"{user_info['first_name']} ({user_line})"
+            
+            bbox = draw.textbbox((0, 0), user_line, font=font_user)
+            text_width = bbox[2] - bbox[0]
+            draw.text(
+                ((self.config.width - text_width) // 2, 350),
+                user_line,
+                font=font_user,
+                fill=colors['accent']
+            )
+            
+            # Draw member count if available
+            if 'member_count' in user_info:
+                member_text = f"Member #{user_info['member_count']}"
+                bbox = draw.textbbox((0, 0), member_text, font=font_info)
+                text_width = bbox[2] - bbox[0]
+                draw.text(
+                    ((self.config.width - text_width) // 2, 450),
+                    member_text,
+                    font=font_info,
+                    fill=(150, 255, 150)  # Light green
+                )
+            
+            # Draw instructions
+            instructions = [
+                "Use /roast to get roasted 🔥",
+                "Use /rate to rate others ⭐",
+                "Use /help for more commands ℹ️"
             ]
             
-            if bbox[0] > 0 and bbox[1] > 0:
-                vignette_draw.ellipse(
-                    bbox,
-                    fill=(0, 0, 0, alpha),
-                    outline=None
+            current_y = 550
+            for instruction in instructions:
+                bbox = draw.textbbox((0, 0), instruction, font=font_info)
+                text_width = bbox[2] - bbox[0]
+                draw.text(
+                    ((self.config.width - text_width) // 2, current_y),
+                    instruction,
+                    font=font_info,
+                    fill=(200, 200, 255)  # Light blue
                 )
-        
-        # Composite all effects
-        result = Image.alpha_composite(image.convert('RGBA'), overlay)
-        result = Image.alpha_composite(result, vignette)
-        
-        return result.convert('RGB')
-    
-    async def apply_reflection_effect(self, image: Image.Image) -> Image.Image:
-        """Apply reflection effect to image"""
-        width, height = image.size
-        
-        # Create reflection
-        reflection = image.transpose(Image.FLIP_TOP_BOTTOM)
-        
-        # Create gradient mask
-        mask = Image.new('L', (width, height // 2), 0)
-        mask_draw = ImageDraw.Draw(mask)
-        
-        for y in range(height // 2):
-            alpha = int(255 * (1 - y / (height // 2)))
-            mask_draw.line([(0, y), (width, y)], fill=alpha)
-        
-        # Apply mask to reflection
-        reflection.putalpha(mask)
-        
-        # Create new image with reflection
-        result = Image.new('RGBA', (width, height + height // 2))
-        result.paste(image, (0, 0))
-        result.paste(reflection, (0, height), reflection)
-        
-        return result
-    
-    def _adjust_brightness(self, image: Image.Image, factor: float) -> Image.Image:
-        """Adjust image brightness"""
-        enhancer = ImageEnhance.Brightness(image)
-        return enhancer.enhance(factor)
-
-
-class TemplateManager:
-    """Manage image templates"""
-    
-    def __init__(self):
-        self.templates = {}
-        self.template_cache = {}
-    
-    async def load_templates_async(self):
-        """Load templates asynchronously"""
-        templates_dir = Path(PATHS["templates"])
-        
-        if templates_dir.exists():
-            # Load JSON templates
-            json_files = templates_dir.glob("*.json")
+                current_y += 60
             
-            for json_file in json_files:
-                try:
-                    async with aiofiles.open(json_file, 'r', encoding='utf-8') as f:
-                        content = await f.read()
-                    templates = json.loads(content)
-                    self.templates[json_file.stem] = templates
-                except Exception as e:
-                    logger.error(f"Error loading template {json_file}: {e}")
+            # Add decorative border
+            border = self.border_manager.create_border(
+                self.config.width, self.config.height,
+                "rounded", (255, 215, 0),  # Gold border
+                thickness=25
+            )
+            image = Image.alpha_composite(image, border)
+            
+            # Add celebration emojis
+            emojis = ["🎊", "🎈", "🥳", "👏", "✨"]
+            for i in range(8):
+                emoji = random.choice(emojis)
+                font_emoji = self.font_manager.get_font(80)
+                bbox = draw.textbbox((0, 0), emoji, font=font_emoji)
+                text_width = bbox[2] - bbox[0]
+                
+                x = random.randint(100, self.config.width - 100 - text_width)
+                y = random.randint(500, self.config.height - 150)
+                
+                draw.text((x, y), emoji, font=font_emoji, fill=(255, 255, 255, 180))
+            
+            # Convert and save
+            if image.mode == 'RGBA':
+                rgb_image = Image.new('RGB', image.size, colors['background'])
+                rgb_image.paste(image, mask=image.split()[3])
+                image = rgb_image
+            
+            output_path = Path(self.config.output_dir) / f"welcome_{int(datetime.now().timestamp())}.png"
+            image.save(output_path, 'PNG', quality=self.config.quality)
+            
+            logger.info(f"Welcome image generated: {output_path}")
+            return str(output_path)
+            
+        except Exception as e:
+            logger.error(f"Error generating welcome image: {e}")
+            return self._create_error_image("Welcome image error")
+    
+    def generate_achievement_image(self, user_info: Dict[str, Any],
+                                  achievement: Dict[str, Any]) -> str:
+        """Generate achievement/unlock image"""
+        if not PIL_AVAILABLE:
+            return self._create_error_image("Image generation disabled")
         
-        logger.info(f"Loaded {len(self.templates)} template sets")
+        try:
+            colors = self.config.color_schemes['vintage']
+            
+            # Create background
+            background = Image.new('RGB', (self.config.width, self.config.height),
+                                 colors['background'])
+            
+            # Add texture
+            texture = Image.new('RGBA', (self.config.width, self.config.height),
+                              (0, 0, 0, 0))
+            draw_texture = ImageDraw.Draw(texture)
+            
+            for _ in range(500):
+                x = random.randint(0, self.config.width)
+                y = random.randint(0, self.config.height)
+                size = random.randint(1, 3)
+                alpha = random.randint(10, 30)
+                draw_texture.ellipse([x, y, x + size, y + size],
+                                    fill=(101, 67, 33, alpha))
+            
+            background = Image.alpha_composite(background.convert('RGBA'), texture)
+            
+            image = background
+            draw = ImageDraw.Draw(image)
+            
+            # Get fonts
+            font_title = self.font_manager.get_random_font(self.config.width // 12)
+            font_achievement = self.font_manager.get_font(self.config.width // 18)
+            font_user = self.font_manager.get_font(self.config.width // 25)
+            font_desc = self.font_manager.get_font(self.config.width // 30)
+            
+            # Draw achievement icon/emoji
+            achievement_icon = achievement.get('icon', '🏆')
+            font_icon = self.font_manager.get_font(120)
+            bbox = draw.textbbox((0, 0), achievement_icon, font=font_icon)
+            text_width = bbox[2] - bbox[0]
+            draw.text(
+                ((self.config.width - text_width) // 2, 150),
+                achievement_icon,
+                font=font_icon,
+                fill=(255, 215, 0)  # Gold
+            )
+            
+            # Draw achievement title
+            title = achievement.get('title', 'ACHIEVEMENT UNLOCKED!')
+            bbox = draw.textbbox((0, 0), title, font=font_title)
+            text_width = bbox[2] - bbox[0]
+            draw.text(
+                ((self.config.width - text_width) // 2, 300),
+                title,
+                font=font_title,
+                fill=colors['accent']
+            )
+            
+            # Draw achievement name
+            achievement_name = achievement.get('name', 'Unknown Achievement')
+            bbox = draw.textbbox((0, 0), achievement_name, font=font_achievement)
+            text_width = bbox[2] - bbox[0]
+            draw.text(
+                ((self.config.width - text_width) // 2, 400),
+                achievement_name,
+                font=font_achievement,
+                fill=colors['text']
+            )
+            
+            # Draw achievement description
+            description = achievement.get('description', '')
+            if description:
+                wrapped_desc = self._wrap_text(description, 40)
+                current_y = 480
+                for line in wrapped_desc:
+                    bbox = draw.textbbox((0, 0), line, font=font_desc)
+                    text_width = bbox[2] - bbox[0]
+                    draw.text(
+                        ((self.config.width - text_width) // 2, current_y),
+                        line,
+                        font=font_desc,
+                        fill=(150, 150, 150)
+                    )
+                    current_y += 40
+            
+            # Draw user info
+            user_text = f"Awarded to: @{user_info.get('username', 'user')}"
+            bbox = draw.textbbox((0, 0), user_text, font=font_user)
+            text_width = bbox[2] - bbox[0]
+            draw.text(
+                ((self.config.width - text_width) // 2, self.config.height - 150),
+                user_text,
+                font=font_user,
+                fill=colors['accent']
+            )
+            
+            # Draw date
+            date_text = datetime.now().strftime("%B %d, %Y")
+            bbox = draw.textbbox((0, 0), date_text, font=font_desc)
+            text_width = bbox[2] - bbox[0]
+            draw.text(
+                ((self.config.width - text_width) // 2, self.config.height - 100),
+                date_text,
+                font=font_desc,
+                fill=(100, 100, 100)
+            )
+            
+            # Add decorative border
+            border = self.border_manager.create_border(
+                self.config.width, self.config.height,
+                "double", colors['border'],
+                thickness=20
+            )
+            image = Image.alpha_composite(image, border)
+            
+            # Add shine effect
+            shine = Image.new('RGBA', (self.config.width, self.config.height),
+                            (0, 0, 0, 0))
+            draw_shine = ImageDraw.Draw(shine)
+            
+            # Draw light rays
+            for angle in range(0, 360, 45):
+                rad = angle * 3.14159 / 180
+                length = 400
+                end_x = self.config.width // 2 + int(length * 0.7 * math.cos(rad))
+                end_y = self.config.height // 2 + int(length * 0.7 * math.sin(rad))
+                
+                draw_shine.line(
+                    [self.config.width // 2, self.config.height // 2,
+                     end_x, end_y],
+                    fill=(255, 255, 255, 30),
+                    width=10
+                )
+            
+            image = Image.alpha_composite(image, shine)
+            
+            # Convert and save
+            if image.mode == 'RGBA':
+                rgb_image = Image.new('RGB', image.size, colors['background'])
+                rgb_image.paste(image, mask=image.split()[3])
+                image = rgb_image
+            
+            output_path = Path(self.config.output_dir) / f"achievement_{int(datetime.now().timestamp())}.png"
+            image.save(output_path, 'PNG', quality=self.config.quality)
+            
+            logger.info(f"Achievement image generated: {output_path}")
+            return str(output_path)
+            
+        except Exception as e:
+            logger.error(f"Error generating achievement image: {e}")
+            return self._create_error_image("Achievement image error")
+    
+    def _create_error_image(self, error_message: str) -> str:
+        """Create error image when generation fails"""
+        try:
+            # Create simple error image
+            width, height = 800, 400
+            image = Image.new('RGB', (width, height), (255, 200, 200))
+            draw = ImageDraw.Draw(image)
+            
+            # Try to get font
+            try:
+                font = self.font_manager.get_font(40)
+            except:
+                font = ImageFont.load_default()
+            
+            # Draw error text
+            error_title = "Image Generation Error"
+            draw.text((width//4, height//3), error_title, font=font, fill=(255, 0, 0))
+            
+            # Draw message (truncate if too long)
+            if len(error_message) > 50:
+                error_message = error_message[:47] + "..."
+            draw.text((width//4, height//2), error_message, font=font, fill=(100, 0, 0))
+            
+            # Save to temp directory
+            temp_path = Path(self.config.temp_dir) / f"error_{int(datetime.now().timestamp())}.png"
+            image.save(temp_path, 'PNG')
+            
+            return str(temp_path)
+        except Exception as e:
+            # Last resort: create simple text file
+            error_file = Path(self.config.temp_dir) / "error.txt"
+            with open(error_file, 'w') as f:
+                f.write(f"Image generation failed: {error_message}")
+            return str(error_file)
+    
+    def _image_to_bytes(self, image: Image.Image) -> bytes:
+        """Convert PIL Image to bytes"""
+        import io
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format=self.config.format,
+                  quality=self.config.quality)
+        return img_byte_arr.getvalue()
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get generator statistics"""
+        avg_time = 0
+        if self.stats['successful'] > 0:
+            avg_time = self.stats['total_time'] / self.stats['successful']
+        
+        return {
+            'total_generated': self.stats['images_generated'],
+            'successful': self.stats['successful'],
+            'failed': self.stats['failed'],
+            'success_rate': (
+                (self.stats['successful'] / self.stats['images_generated'] * 100)
+                if self.stats['images_generated'] > 0 else 0
+            ),
+            'average_time': f"{avg_time:.2f}s",
+            'pil_available': PIL_AVAILABLE,
+            'fonts_loaded': len(self.font_manager.fonts)
+        }
+    
+    def cleanup_old_files(self, max_age_hours: int = 24):
+        """Clean up old generated files"""
+        try:
+            cutoff_time = datetime.now().timestamp() - (max_age_hours * 3600)
+            
+            for dir_path in [self.config.temp_dir, self.config.cache_dir]:
+                if os.path.exists(dir_path):
+                    for file in os.listdir(dir_path):
+                        file_path = os.path.join(dir_path, file)
+                        if os.path.isfile(file_path):
+                            if os.path.getmtime(file_path) < cutoff_time:
+                                os.remove(file_path)
+                                logger.debug(f"Removed old file: {file_path}")
+            
+            logger.info("Cleaned up old files")
+        except Exception as e:
+            logger.error(f"Error cleaning up files: {e}")
 
 
-class ImageGenerationError(Exception):
-    """Custom exception for image generation errors"""
-    pass
+# For backward compatibility
+ImageGenerator = AdvancedImageGenerator
 
 
-# Factory function for convenience
-async def create_image_generator(
-    config: Optional[GenerationConfig] = None
-) -> AdvancedImageGenerator:
-    """Factory function to create image generator"""
-    generator = AdvancedImageGenerator(config)
-    # Wait for assets to load
-    await asyncio.sleep(0.1)  # Small delay for async loading
-    return generator
-
-
-# Example usage
-async def example_usage():
-    """Example usage of the advanced image generator"""
-    # Create generator
-    generator = await create_image_generator(
-        GenerationConfig(
-            width=1200,
-            height=1200,
-            style=ImageStyle.NEON,
-            quality=98,
-            enable_cache=True
-        )
-    )
+# Quick test function
+def test_generator():
+    """Test the image generator"""
+    print("Testing Image Generator...")
+    
+    if not PIL_AVAILABLE:
+        print("ERROR: PIL/Pillow not installed!")
+        print("Install with: pip install pillow")
+        return False
+    
+    generator = AdvancedImageGenerator()
+    
+    # Test data
+    test_roast = "This is a test roast to check if the image generator is working properly!"
+    test_user = {
+        'username': 'test_user',
+        'first_name': 'Test',
+        'rating': 7.5,
+        'member_count': 42
+    }
     
     try:
-        # Create text configuration
-        text_config = TextConfig(
-            primary_text="Advanced Roast Generator",
-            secondary_text="Professional grade image generation",
-            emoji="🔥",
-            font_size_primary=72,
-            font_size_secondary=36,
-            text_color=(255, 255, 255),
-            effects=[TextEffect.GLOW, TextEffect.SHADOW_3D]
-        )
+        # Generate roast image
+        print("Generating roast image...")
+        roast_path = generator.generate_roast_image(test_roast, test_user)
+        print(f"✓ Roast image: {roast_path}")
         
-        # Create border configuration
-        border_config = BorderConfig(
-            enabled=True,
-            style="neon",
-            color=(0, 255, 255),
-            thickness=15
-        )
+        # Generate welcome image
+        print("Generating welcome image...")
+        welcome_path = generator.generate_welcome_image(test_user)
+        print(f"✓ Welcome image: {welcome_path}")
         
-        # Generate image
-        image_data = await generator.generate_image(
-            text_config=text_config,
-            border_config=border_config
-        )
+        # Show stats
+        stats = generator.get_stats()
+        print("\nGenerator Stats:")
+        for key, value in stats.items():
+            print(f"  {key}: {value}")
         
-        # Save to file
-        output_path = Path(PATHS["output"]) / "example_roast.png"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        return True
         
-        with open(output_path, 'wb') as f:
-            f.write(image_data)
-        
-        console.print(f"[green]✓ Image generated: {output_path}[/green]")
-        
-        # Show performance stats
-        stats = generator.get_performance_stats()
-        console.print(f"[blue]Performance Stats:[/blue]")
-        console.print(f"  Cache hit rate: {stats['cache_hit_rate']:.1f}%")
-        console.print(f"  Avg generation time: {stats['avg_generation_time']:.2f}s")
-        
-    finally:
-        # Cleanup
-        await generator.cleanup()
+    except Exception as e:
+        print(f"✗ Test failed: {e}")
+        return False
 
 
 if __name__ == "__main__":
-    # Run example
-    asyncio.run(example_usage())
+    # Run test if file is executed directly
+    success = test_generator()
+    sys.exit(0 if success else 1)
