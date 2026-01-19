@@ -29,6 +29,8 @@ CORE_RULES = {
     "text_reply": True,
     "image_reply": True,
     "diagram_reply": True
+    "image_quality": 95,
+    "premium_features": True
 }
 
 # ==================== INPUT PROCESSING ====================
@@ -187,6 +189,16 @@ OWNER_ADMIN_PROTECTION = {
     "strict_protection": True,
     "roast_tone": "Funny / Safe",
     "cooldown_seconds": 120
+}
+
+PREMIUM_CONFIG = {
+    "default_theme": "diamond",
+    "max_badges_display": 10,
+    "card_quality": 100,
+    "enable_ai_analytics": True,
+    "enable_blockchain": True,
+    "enable_dashboard": True,
+    "enable_reports": True
 }
 
 # ==================== TOPIC BASED REACTION ====================
